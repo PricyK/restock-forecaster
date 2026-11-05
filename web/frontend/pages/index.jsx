@@ -33,7 +33,7 @@ function RiskBadge({ risk }) {
   const badge = RISK_BADGES[risk];
   return (
     <span className={badge.strong ? "badge-strong" : undefined}>
-      <RiskBadge risk={row.risk} />
+      <Badge status={badge.status}>{badge.label}</Badge>
     </span>
   );
 }
