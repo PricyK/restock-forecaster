@@ -117,3 +117,70 @@ Forecast.call(
 Because `Forecast` only takes hashes, its tests (`web/test/services/forecast_test.rb`) build tiny inputs by hand and run in milliseconds, with no store, network or login. They pin each risk level, the 7- and 14-day boundaries (for example, 15 in stock at 2 a day is 7.5 days, floored to 7, so critical), zero and negative stock, and the sort order. The code that talks to Shopify (Task 4) only has to produce the input in this shape.
 
 `Forecast < ApplicationService` follows the template's pattern (see `product_counter.rb`): `Forecast.call(...)` is short for `Forecast.new(...).call`.
+
+## Task 3: The demo seed (`web/app/services/seed_scenario.rb`, `web/lib/tasks/restock.rake`)
+
+The demo has to show every risk level every time, so the store is filled with a fixed, known scenario instead of random data.
+
+### The scenario
+
+`SeedScenario` is a **module**: a named box of constants and functions, with no objects to create. `module_function` lets you call `SeedScenario.orders(now: ...)` directly.
+
+| Key | Product | Stock | Sold in 10 orders | Forecast |
+|---|---|---|---|---|
+| A | Oat Milk 1L | 0 | 10 | Out of stock |
+| B | Cold Brew Can | 6 | 60 (2/day) | Critical, 3 days |
+| C | Dark Roast Beans 340g | 20 | 45 (1.5/day) | Warning, 13 days |
+| D | Ceramic Mug | 100 | 30 (1/day) | OK, 100 days |
+| E | Pour-Over Kettle | 25 | 0 | No recent sales |
+
+`orders(now:)` builds 10 orders, one every 3 days, from 1.5 to 28.5 days ago (`now - (3 * i + 1.5).days`). `10.times.map { |i| ... }` runs the block for i = 0 to 9 and collects the results. Dark Roast alternates 4 and 5 per order (`i.even? ? 4 : 5` reads "if i is even then 4, else 5").
+
+`now:` is passed in rather than read from the clock inside, so the tests can use a fixed time and get the same answer every run. One test feeds the scenario through `Forecast` and checks it gives the table above, so the demo data and the math can't drift apart.
+
+### Rake tasks
+
+A **rake task** is a named command for maintenance jobs. `bin/rails restock:seed` runs the block in `restock.rake`. `task seed: :environment` means "load the Rails app first", so the task can use `Shop` and the Shopify gems. Run it like this, from `web/`:
+
+```
+env $(shopify app env show | grep =) bin/rails restock:seed SHOP=ridgeline-coffee-co-3j14nuup.myshopify.com
+```
+
+`shopify app env show` prints the app's API key and secret. `env $(...)` passes them to the command as environment variables, the same way `shopify app dev` passes them to the server. Without them the `shopify_api` gem isn't set up, and the task stops with that command as its message.
+
+### What the task does, in order
+
+1. Finds the store in the `shops` table and opens a session with `shop.with_shopify_session`, which first swaps an expired access token (they last one hour) for a fresh one using the saved refresh token.
+2. Checks the store is a **development store** (`shop.plan.partnerDevelopment`) and refuses otherwise, so it can never put fake orders into a real shop.
+3. Deletes products tagged `restock-seed` (`productDelete`). That's what makes it safe to run again.
+4. Creates each product with `productSet`: one variant, a price, a SKU like `SEED-B`, inventory tracked, and the stock quantity at the store's location.
+5. Creates each order with `orderCreate`.
+
+### GraphQL mutations
+
+A **query** reads data. A **mutation** changes it. Both are sent as a text document plus a set of **variables**:
+
+```graphql
+mutation($input: ProductSetInput!) {
+  productSet(input: $input, synchronous: true) { product { ... } userErrors { field message } }
+}
+```
+
+`$input` is filled from a Ruby hash. The `!` means "required". The part in `{ }` after the mutation says what you want back. There are two kinds of failure: top-level `errors` (bad query, no permission, throttled) and `userErrors` (the request was understood, but the data was rejected, for example an invalid price). The task's `gql` helper raises on either, so nothing fails silently.
+
+The exact field names were checked against the live `2026-10` schema with an **introspection** query, which asks the API to describe its own types.
+
+### Why the orders are backdated, and why stock is bypassed
+
+- **Backdated:** the forecast counts sales in the last 30 days. Orders created today would all land on one day. `processedAt` sets the date the sale happened. Shopify still records `createdAt` as the moment the seed ran, which is why the app must filter on `processed_at`. On the dev store, the 10 orders show `processed_at` spread from Oct 8 to Nov 4, while all of them were created on Nov 5.
+- **Stock bypassed:** a real order lowers stock. Here the scenario's stock numbers (0, 6, 20, 100, 25) are the "now" picture, and the orders are history leading up to it. `inventoryBehaviour: BYPASS` records the sale without touching stock.
+- Because sales are dated relative to the seed day, the numbers only match the table on that day. After a few days the oldest orders leave the 30-day window. Re-seed on testing and recording days.
+- Re-seeding deletes the products, not the old orders. Old orders then point at deleted variants, and the forecast skips line items with no variant (Task 4).
+
+### Rate limit
+
+Development stores accept about 5 new orders a minute. The task waits 12 seconds between orders, so a full run takes about 2 minutes. If Shopify still says it is throttled, the task waits 60 seconds and retries the same order, up to 3 times. That's marked as a `shortcut:` in the code: a fixed wait is fine for 10 orders, and a bigger job would back off longer each time.
+
+### Protected customer data
+
+Orders hold customer details, so Shopify only lets an app read order fields after the developer declares why the app needs them ("protected customer data access" in the app's settings). Without that, `orderCreate` still creates the order, but asking for the new order's `id` back is refused. The task doesn't need the id, so it only asks for `userErrors`. Reading orders in Task 4 does need the access.
