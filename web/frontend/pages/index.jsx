@@ -8,10 +8,14 @@ import {
   Page,
   SkeletonBodyText,
   Text,
+  UnstyledButton,
 } from "@shopify/polaris";
+import { useState } from "react";
 import { useQuery } from "react-query";
 
 import { notFoundImage } from "../assets";
+import { SalesHistoryModal } from "../components";
+import { fetchJson } from "../utils/fetchJson";
 
 const RISK_BADGES = {
   out_of_stock: { status: "critical", label: "Out of stock" },
@@ -26,16 +30,6 @@ const SUMMARY = [
   ["warning", "warning"],
   ["out_of_stock", "out of stock"],
 ];
-
-const FALLBACK_ERROR = "Couldn't load data from Shopify. Try again.";
-
-// App Bridge adds the session token to fetch() calls, so the Rails endpoint knows which store is asking.
-async function fetchForecast() {
-  const response = await fetch("/api/forecast");
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || FALLBACK_ERROR);
-  return body;
-}
 
 // Dates arrive as "YYYY-MM-DD". Formatting in UTC stops the browser's time zone from shifting the day.
 function formatDate(iso) {
@@ -58,7 +52,7 @@ function summarize(rows) {
   return parts.length > 0 ? parts.join(" · ") : "Nothing at risk";
 }
 
-function ForecastTable({ rows }) {
+function ForecastTable({ rows, onSelect }) {
   if (rows.length === 0) {
     return (
       <Card sectioned>
@@ -109,9 +103,14 @@ function ForecastTable({ rows }) {
             row.daily_rate,
             row.days_left ?? "—",
             formatDate(row.run_out_date),
-            <Badge key={row.id} status={badge.status}>
-              {badge.label}
-            </Badge>,
+            // The label replaces the badge text for screen readers, so it keeps the risk word.
+            <UnstyledButton
+              key={row.id}
+              accessibilityLabel={`${badge.label}: sales history for ${row.product_title}`}
+              onClick={() => onSelect(row)}
+            >
+              <Badge status={badge.status}>{badge.label}</Badge>
+            </UnstyledButton>,
           ];
         })}
       />
@@ -120,9 +119,10 @@ function ForecastTable({ rows }) {
 }
 
 export default function HomePage() {
+  const [selected, setSelected] = useState(null);
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["forecast"],
-    queryFn: fetchForecast,
+    queryFn: () => fetchJson("/api/forecast"),
     refetchOnWindowFocus: false,
     retry: false,
   });
@@ -159,9 +159,10 @@ export default function HomePage() {
               <SkeletonBodyText lines={6} />
             </Card>
           )}
-          {data && <ForecastTable rows={data.rows} />}
+          {data && <ForecastTable rows={data.rows} onSelect={setSelected} />}
         </Layout.Section>
       </Layout>
+      <SalesHistoryModal row={selected} onClose={() => setSelected(null)} />
     </Page>
   );
 }

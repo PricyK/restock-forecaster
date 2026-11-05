@@ -197,4 +197,4 @@ Seed details:
 - The table shows all variants, sorted with at-risk ones on top.
 - The seed resets by deleting its own tagged products, and is re-run on testing and recording days.
 - The fallback stack above, if the template will not run.
-- Sales history: 8 full weeks as the longest range, rather than 60 days split into weeks. The chart is drawn in SVG with no library, so it has no hover tooltips. "Sales" means units sold. The 30-day window counts today and the 29 days before it.
+- Sales history: 8 full weeks as the longest range, rather than 60 days split into weeks. The chart is drawn in SVG with no library; hovering over a date shows its value through the browser's built-in SVG tooltip (no custom tooltip). "Sales" means units sold. The 30-day window counts today and the 29 days before it.
