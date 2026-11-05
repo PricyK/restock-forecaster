@@ -7,7 +7,7 @@ class ForecastTest < ActiveSupport::TestCase
 
   test "seed scenario rows" do
     by_id = seed_rows.index_by { _1[:id] }
-    assert_equal ["out_of_stock", 0], by_id["A"].values_at(:risk, :days_left)
+    assert_equal ["out_of_stock", 0, TODAY], by_id["A"].values_at(:risk, :days_left, :run_out_date)
     assert_equal ["critical", 3, Date.new(2026, 11, 13)], by_id["B"].values_at(:risk, :days_left, :run_out_date)
     assert_equal ["warning", 13], by_id["C"].values_at(:risk, :days_left)
     assert_equal ["ok", 100, 1.0], by_id["D"].values_at(:risk, :days_left, :daily_rate)

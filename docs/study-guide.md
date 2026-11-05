@@ -67,3 +67,53 @@ The lasting fix is committing `Gemfile.lock`, so every machine installs the same
 Two other things the CLI did: when it created the app it rewrote `shopify.app.toml` and emptied `scopes`, and set the webhook API version to `2027-01`, which is a release candidate, not a stable version. Both were put back by hand. The `client_id` it added is public and safe to commit; the secret stays in Shopify and in environment variables the CLI sets.
 
 The template also shipped a `.github/` folder with Shopify's own repo tools (CLA bot, issue bots, a style-check workflow). It was removed: none of it applies here, and pushing workflow files needs an extra GitHub permission.
+
+## Task 2: The forecast math (`web/app/services/forecast.rb`)
+
+This class answers one question per product variant: "at the current sales rate, when does it run out?" It knows nothing about Shopify. It takes plain Ruby data in and gives plain Ruby data back.
+
+### What goes in and what comes out
+
+```ruby
+Forecast.call(
+  variants:   [{ id: "gid://shopify/ProductVariant/1", product_title: "Cold Brew Can",
+                 variant_title: nil, sku: "CB-1", inventory: 6 }],
+  units_sold: { "gid://shopify/ProductVariant/1" => 60 },
+  today:      Date.new(2026, 11, 10),
+)
+# => [{ id: "...", product_title: "Cold Brew Can", variant_title: nil, sku: "CB-1", inventory: 6,
+#       daily_rate: 2.0, days_left: 3, run_out_date: Date(2026-11-13), risk: "critical" }]
+```
+
+- `{ id: "...", inventory: 6 }` is a **hash**: a set of key → value pairs. `id:` is a **symbol** key (a fixed name, cheaper than a string). `variant[:inventory]` reads a value. `units_sold` uses string keys (the variant ids), so `@units_sold.fetch(variant[:id], 0)` reads one and falls back to `0` when the variant had no sales.
+- `variant.merge(daily_rate: ..., risk: ...)` returns a **new** hash with the extra keys added. The input is not changed.
+- `Date.new(2026, 11, 10) + 3` is November 13. Adding a number to a `Date` adds days.
+
+### The rules, line by line
+
+- `rate = units / 30.0`: units sold per day over the 30-day window (`WINDOW_DAYS`). Writing `30.0` (or `.to_f`) matters. In Ruby, `60 / 30` is integer division and `45 / 30` would give `1`, not `1.5`.
+- `days_left = (inventory / rate).floor`: `.floor` rounds **down** to a whole day. 20 in stock at 1.5 a day is 13.3 days, which becomes 13. Rounding down is the cautious choice: it never promises a day of stock that isn't there.
+- Days left uses the exact rate. Only the `daily_rate` shown in the table is rounded to 2 decimals. Rounding first would skew slow sellers: 1 sale in 30 days is 0.0333/day, and 10 in stock is 300 days, but with the rounded 0.03 it would be 333.
+- Risk, checked in this order:
+  1. stock 0 or less → `out_of_stock` (with `days_left: 0` and `run_out_date: today`, since it already ran out);
+  2. no sales in 30 days → `no_recent_sales` (no date, because it isn't running out);
+  3. 7 days or fewer → `critical`; 8 to 14 → `warning`; more than 14 → `ok`.
+- `run_out_date: days_left && @today + days_left`: `&&` returns the right side only when the left side is "truthy". In Ruby only `nil` and `false` are falsy, **`0` is truthy**. So out-of-stock rows (`days_left` 0) get today's date, and no-recent-sales rows (`nil`) get `nil`.
+
+### Sorting
+
+```ruby
+.sort_by { |r| [SORT_GROUP.fetch(r[:risk], 1), r[:days_left] || 0, r[:product_title]] }
+```
+
+`sort_by` sorts by whatever the block returns. Returning an **array** sorts by the first item, then breaks ties with the second, then the third, like sorting by last name and then first name. Here:
+
+1. the group: out of stock = 0, anything with a date = 1, no recent sales = 2;
+2. days left, smallest first (`|| 0` replaces `nil`, because Ruby can't compare `nil` with a number);
+3. the product title, alphabetically, so ties always come out in the same order.
+
+### Why the math is separate from Shopify
+
+Because `Forecast` only takes hashes, its tests (`web/test/services/forecast_test.rb`) build tiny inputs by hand and run in milliseconds, with no store, network or login. They pin each risk level, the 7- and 14-day boundaries (for example, 15 in stock at 2 a day is 7.5 days, floored to 7, so critical), zero and negative stock, and the sort order. The code that talks to Shopify (Task 4) only has to produce the input in this shape.
+
+`Forecast < ApplicationService` follows the template's pattern (see `product_counter.rb`): `Forecast.call(...)` is short for `Forecast.new(...).call`.
