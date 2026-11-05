@@ -268,7 +268,7 @@ This is where the pieces meet: a request comes in, the controller asks `ShopifyS
              "run_out_date": "2026-11-08", "risk": "critical" }, ...] }
 ```
 
-The controller holds no business logic: no math, and no GraphQL text. That's why it's 16 lines.
+The controller holds no business logic: no math, and no GraphQL text. That's why the whole file is 17 lines.
 
 ### How the request is authenticated
 
