@@ -7,6 +7,7 @@ Rails.application.routes.draw do
 
   scope path: :api, format: :json do
     get "/forecast", to: "forecasts#show"
+    get "/sales_history", to: "forecasts#sales_history"
 
     namespace :webhooks do
       post "/app_uninstalled", to: "app_uninstalled#receive"

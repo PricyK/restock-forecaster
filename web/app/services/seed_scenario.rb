@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# The fixed demo store: five products and ten backdated orders that give one of each risk level.
+# The fixed demo store: five products and backdated orders that give one of each risk level.
 module SeedScenario
   TAG = "restock-seed"
 
@@ -18,9 +18,10 @@ module SeedScenario
     PRODUCTS
   end
 
-  # 10 orders, one every 3 days from 1.5 to 28.5 days ago. "E" never sells.
+  # 10 orders, one every 3 days from 1.5 to 28.5 days ago, set the forecast. "E" sells none of them.
+  # 6 older orders, 33.5 to 53.5 days ago, only show on the 8-week chart: B sold half as much, E sold then stopped.
   def orders(now:)
-    10.times.map do |i|
+    recent = 10.times.map do |i|
       {
         processed_at: now - (3 * i + 1.5).days,
         lines: [
@@ -31,5 +32,18 @@ module SeedScenario
         ],
       }
     end
+    older = 6.times.map do |j|
+      {
+        processed_at: now - (33.5 + 4 * j).days,
+        lines: [
+          { key: "A", quantity: 1 },
+          { key: "B", quantity: 3 },
+          { key: "C", quantity: 3 },
+          { key: "D", quantity: 3 },
+          { key: "E", quantity: 2 },
+        ],
+      }
+    end
+    recent + older
   end
 end

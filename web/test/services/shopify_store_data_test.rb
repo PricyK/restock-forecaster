@@ -6,6 +6,7 @@ class ShopifyStoreDataTest < ActiveSupport::TestCase
   V1 = "gid://shopify/ProductVariant/1"
   V2 = "gid://shopify/ProductVariant/2"
   SINCE = Date.new(2026, 10, 11)
+  SHOP_NY = { "data" => { "shop" => { "ianaTimezone" => "America/New_York" } } }.freeze
 
   # Stands in for ShopifyAPI::Clients::Graphql::Admin: returns queued bodies, records each call.
   class FakeClient
@@ -73,10 +74,29 @@ class ShopifyStoreDataTest < ActiveSupport::TestCase
   end
 
   test "today is the shop's local date" do
-    use({ "data" => { "shop" => { "ianaTimezone" => "America/New_York" } } })
+    use SHOP_NY
     travel_to(Time.utc(2026, 11, 6, 2)) do # 9 p.m. on Nov 5 in New York, already Nov 6 in UTC
       assert_equal Date.new(2026, 11, 5), data.today
     end
+  end
+
+  test "daily units are counted per shop-local day" do
+    use SHOP_NY, orders_page([order([[V1, 2]], processed_at: "2026-11-06T02:00:00Z"), # 9 p.m. Nov 5 in New York
+                              order([[V1, 1], [V2, 7]])])
+    assert_equal({ Date.new(2026, 11, 5) => 3 }, data.daily_units(V1, since: SINCE))
+  end
+
+  test "daily units skip cancelled orders" do
+    use SHOP_NY, orders_page([order([[V1, 2]], cancelled_at: "2026-11-05T16:00:00Z")])
+    assert_equal({}, data.daily_units(V1, since: SINCE))
+  end
+
+  test "looks up the time zone once" do
+    use SHOP_NY, orders_page([])
+    store = data
+    store.today
+    store.daily_units(V1, since: SINCE)
+    assert_equal 1, client.calls.count { _1[:query].include?("ianaTimezone") }
   end
 
   test "raises on GraphQL errors" do
@@ -101,8 +121,8 @@ class ShopifyStoreDataTest < ActiveSupport::TestCase
       "inventoryItem" => { "tracked" => tracked }, "product" => { "title" => product } }
   end
 
-  def order(lines, cancelled_at: nil)
-    { "cancelledAt" => cancelled_at,
+  def order(lines, cancelled_at: nil, processed_at: "2026-11-05T15:00:00Z")
+    { "cancelledAt" => cancelled_at, "processedAt" => processed_at,
       "lineItems" => { "nodes" => lines.map { |id, qty| { "quantity" => qty, "variant" => id && { "id" => id } } } } }
   end
 
