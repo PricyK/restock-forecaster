@@ -22,6 +22,7 @@
     <style>
       /* Polaris's UnstyledButton keeps the browser's button look (grey box in Safari); strip it so the badge is the button. */
       .badge-button { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; border-radius: var(--p-border-radius-full); }
+      .badge-button:hover { filter: brightness(0.88); } /* deepens any badge colour, no per-colour rules */
       .badge-button:focus-visible { outline: 2px solid var(--p-focused); outline-offset: 2px; }
     </style>
   </head>
