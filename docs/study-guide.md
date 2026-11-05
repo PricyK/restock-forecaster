@@ -184,3 +184,24 @@ Development stores accept about 5 new orders a minute. The task waits 12 seconds
 ### Protected customer data
 
 Orders hold customer details, so Shopify only lets an app read order fields after the developer declares why the app needs them ("protected customer data access" in the app's settings). Without that, `orderCreate` still creates the order, but asking for the new order's `id` back is refused. The task doesn't need the id, so it only asks for `userErrors`. Reading orders in Task 4 does need the access.
+
+## Audit fixes (Nov 5): webhooks and cleanup
+
+A whole-repo audit (`ponytail:ponytail-audit`) found one real bug in the template and some dead files.
+
+### Webhooks
+
+A **webhook** is a message Shopify sends to the app when something happens, as a `POST` to a URL the app listed in `shopify.app.toml`. Each one is signed: Shopify computes an HMAC (a fingerprint made from the message body and the app's secret) and sends it in the `X-Shopify-Hmac-Sha256` header. `ShopifyApp::WebhookVerification` recomputes it and answers `401 Unauthorized` if it doesn't match, so nobody else can fake a webhook. A valid one is handed to a background **job** (`perform_later`), and the app answers `204 No Content` straight away.
+
+Every app must accept three privacy ("compliance") webhooks: `customers/data_request`, `customers/redact` and `shop/redact`. This app stores no customer data, so their jobs only log.
+
+**The bug:** in `web/config/routes.rb`, `to: "customers_redact#receive"` tells Rails to look for a class named `Webhooks::CustomersRedactController`. Rails turns `customers_redact` into a class name by capitalizing each word. But the file defines `CustomerRedactController`, with no "s". The same mismatch hit `customers_data_request`, and both controllers also called job classes (`CustomerRedactJob`) whose real names are `CustomersRedactJob`. Result: both webhooks crashed with a 500 error. The fix points the routes at the real controllers and corrects the job names.
+
+`web/test/integration/webhooks_test.rb` signs a fake webhook with a test secret, posts it to each of the five addresses, and checks for `204` and the right job queued. It also checks that a bad signature gets `401`.
+
+### Removed
+
+- `Dockerfile`, `entrypoint.sh`, `.dockerignore`: for hosting, which this project doesn't do. They were also out of date (Ruby 3.2, and they left out `Gemfile.lock`).
+- `web/template.rb`: the template's one-time setup script, already done by hand.
+- `web/frontend/.github/`: the frontend template's own repo tools. GitHub only reads `.github/` at the repo root, so they never ran.
+- `capybara`, `selenium-webdriver`, `webdrivers`: gems for browser-driven "system tests". There are none; the frontend is checked by hand.

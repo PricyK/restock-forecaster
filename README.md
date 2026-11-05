@@ -83,11 +83,10 @@ To make the process easier, the template provides a script to run the necessary 
    bundle install
    ```
 
-3. Run the [Rails template](https://guides.rubyonrails.org/rails_application_templates.html) script.
-   It will guide you through setting up your database and set up the necessary keys for encrypted credentials.
+3. Set up the database:
 
    ```shell
-   bin/rails app:template LOCATION=./template.rb
+   bin/rails db:create db:migrate
    ```
 
 And your Rails app is ready to run! You can now switch back to your app's root folder to continue:
