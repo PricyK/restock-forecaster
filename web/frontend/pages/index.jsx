@@ -18,7 +18,7 @@ import { SalesHistoryModal } from "../components";
 import { fetchJson } from "../utils/fetchJson";
 
 const RISK_BADGES = {
-  out_of_stock: { status: "critical", label: "Out of stock" },
+  out_of_stock: { status: "critical", label: "Out of stock", strong: true },
   critical: { status: "critical", label: "Critical" },
   warning: { status: "warning", label: "Warning" },
   ok: { status: "success", label: "OK" },
@@ -106,7 +106,9 @@ function ForecastTable({ rows, onSelect }) {
             // The label replaces the badge text for screen readers, so it keeps the risk word.
             <UnstyledButton
               key={row.id}
-              className="badge-button"
+              className={
+                badge.strong ? "badge-button badge-strong" : "badge-button"
+              }
               accessibilityLabel={`${badge.label}: sales history for ${row.product_title}`}
               onClick={() => onSelect(row)}
             >
