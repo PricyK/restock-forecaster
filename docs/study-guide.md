@@ -205,3 +205,48 @@ Every app must accept three privacy ("compliance") webhooks: `customers/data_req
 - `web/template.rb`: the template's one-time setup script, already done by hand.
 - `web/frontend/.github/`: the frontend template's own repo tools. GitHub only reads `.github/` at the repo root, so they never ran.
 - `capybara`, `selenium-webdriver`, `webdrivers`: gems for browser-driven "system tests". There are none; the frontend is checked by hand.
+
+## Task 4: Reading the store (`web/app/services/shopify_store_data.rb`)
+
+This class is the only place that knows how Shopify's data is shaped. It asks two questions and hands back plain hashes in the exact shape `Forecast` expects, so the math never sees GraphQL.
+
+### GraphQL vs REST
+
+With a **REST** API you call a fixed URL per kind of thing (`/products.json`, `/orders.json`) and get back every field the server decides to send. You often need several calls to stitch related data together.
+
+With **GraphQL** there is one URL (`/admin/api/2026-10/graphql.json`). You send a query that names exactly the fields you want, including related objects, and the response has the same shape as the query:
+
+```graphql
+productVariants(first: 250, after: $after) {
+  nodes { id title sku inventoryQuantity inventoryItem { tracked } product { title } }
+  pageInfo { hasNextPage endCursor }
+}
+```
+
+One request returns each variant, whether it tracks stock, and its product's title. Shopify now treats REST as legacy for apps, which is one reason this project uses GraphQL only.
+
+### Cursor pagination
+
+Shopify returns at most 250 items per request. Each page ends with `pageInfo`: `hasNextPage` says whether there's more, and `endCursor` is a bookmark for where this page stopped. `all_nodes` loops: ask for a page, keep its `nodes`, and if `hasNextPage` is true ask again with `after: endCursor`. Without this loop, a store with 300 variants would silently lose 50 of them. The tests fake a two-page answer for both variants and orders to prove every page is read.
+
+A cursor is better than "page 2, page 3" numbering: if products are added while you read, page numbers shift and you skip or repeat items, but a cursor always continues from the same spot.
+
+Each query has a **cost** in points, and Shopify refuses one that costs more than 1,000. On `2026-10`, a page of 250 orders with up to 250 line items each costs 277 points, and a page of 250 variants costs 35.
+
+### GIDs
+
+Shopify ids look like `gid://shopify/ProductVariant/68179991986403`. A **GID** (global id) names both the type and the number, so it's unique across the whole API. The variant id from `productVariants` and the `variant { id }` on an order's line item are the same string, which is how sales are matched to stock: `units_sold` returns `{ "gid://shopify/ProductVariant/..." => 60 }`, and `Forecast` looks each variant up by that key.
+
+### What gets skipped, and why
+
+- **Untracked variants** (`inventoryItem.tracked` is false): Shopify doesn't count their stock, so `inventoryQuantity` means nothing. A forecast for them would be invented.
+- **"Default Title"**: a product with no options (no sizes or colours) still has one variant, which Shopify names "Default Title". It's shown as `nil` so the table's Variant column stays blank instead of repeating that phrase.
+- **Cancelled orders** (`cancelledAt` is set): the customer didn't end up buying, and cancelled stock goes back on the shelf. Counting them would make an item look like it's selling faster than it is.
+- **Line items with no variant**: custom items typed into an order, or products deleted since. Old seed orders hit this after a re-seed. There is no stock to compare them with, so they're skipped.
+- **Filtering by `processed_at`**: the search `processed_at:>=2026-10-06` uses the date the sale happened. `created_at` would be wrong for the backdated seed orders (all created on seed day) and for orders imported from another system.
+
+Two known limits are marked with `shortcut:` comments: refunds aren't subtracted, and line items past 250 in one order are ignored.
+
+### Testing without Shopify
+
+The tests pass in a `FakeClient` instead of the real GraphQL client. It has the same `query(query:, variables:)` method, returns prepared answers, and records what it was asked, so a test can check, for example, that the second request used the cursor from the first. This works because `ShopifyStoreData.new(client)` takes the client as an argument instead of building it itself (**dependency injection**). The live check ran the real thing against the dev store: units sold came back as 10 / 60 / 45 / 30, matching the seed.
