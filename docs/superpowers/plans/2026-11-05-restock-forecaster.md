@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-05-restock-forecaster-design.md`
 
-**Execution (chosen 2026-11-05):** Native, with `superpowers:executing-plans`, in one session on the MacBook. Status: Tasks 1 to 6 complete (see the ledger); Task 7 added 2026-11-05.
+**Execution (chosen 2026-11-05):** Native, with `superpowers:executing-plans`, in one session on the MacBook. Status: Tasks 1 to 6 complete (see the ledger); Tasks 7 and 8 added 2026-11-05.
 
 ## Global Constraints
 
@@ -27,8 +27,8 @@
 - **Ponytail plugin (Muhammad's request):**
   - Write all code and designs under `ponytail:ponytail` at **ultra** level (Muhammad's request, 2026-11-05; was full): question any part of a request the need does not justify, then the smallest complete change, `shortcut: <limit>, <when to upgrade>` comments on known limits.
   - Run `ponytail:ponytail-review` on each task's commits before the task's Explain step. Fix real findings, or note why one was skipped in the study guide.
-  - Run `ponytail:ponytail-audit` on the whole repo in Task 8.
-  - Use `ponytail:ponytail-debt` output as the source of the README's known-limitations list in Task 9.
+  - Run `ponytail:ponytail-audit` on the whole repo in Task 9.
+  - Use `ponytail:ponytail-debt` output as the source of the README's known-limitations list in Task 10.
 - **GitHub (Muhammad's request):** the repo `PricyK/restock-forecaster` is created in Task 1, and every task ends with `git push` so progress shows in real time. Ask Muhammad public or private before creating it. Before every push, check `git status` and the diff for secrets: no `.env`, API secret, access tokens, or SQLite database files.
 - **Branches (Muhammad's request, 2026-11-05):** all work is committed on `dev` and pushed there after every task. `dev` merges into `main` only after the task's checks pass: full `bin/rails test` green, `ponytail:ponytail-review` findings fixed or noted, the secret check above, and, where the task has one, the manual check on the dev store. Merge with `git merge --no-ff dev` on `main`, then push `main`.
 - **Machine:** Muhammad's MacBook. Work happens in a clone of `PricyK/restock-forecaster` (created on 2026-11-05 with only these docs). All commands below run in Terminal from `web/` unless stated.
@@ -570,7 +570,40 @@ end
 
 ---
 
-### Task 8: Dev testing on the store
+### Task 8: Dark mode toggle
+
+Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
+
+**Files:**
+- Modify: `web/frontend/index.html` (one `<style>` block), `web/frontend/pages/index.jsx`
+
+**Interfaces:**
+- Consumes: the page (Task 6) and the sales window (Task 7).
+- Produces: the class `dark` on `<html>` while dark mode is on, and the `localStorage` key `"theme"`, which holds `"dark"` or is absent.
+
+- [ ] **Step 1: CSS** in `index.html`:
+  - `html.dark { filter: invert(1) hue-rotate(180deg); }`.
+  - The same filter on `html.dark img, html.dark .Polaris-Backdrop`, which flips those back so they look normal.
+  - The comment `shortcut: inverts colours with a filter instead of a dark palette, replace with Polaris colour variables if colours look off`.
+- [ ] **Step 2: Toggle** in `index.jsx`:
+  - State: `dark` starts from `localStorage.getItem("theme") === "dark"`.
+  - An effect toggles `document.documentElement.classList` and saves the choice, or removes the key in light mode.
+  - The `Page` gets `secondaryActions` with one action: "Dark mode", or "Light mode" while dark mode is on.
+  - If the browser blocks storage, the toggle still works for that visit instead of crashing the page.
+- [ ] **Step 3: Verify** from `web/frontend`: `npm run build` → builds, and `npx prettier --check pages index.html` → clean. Commit: `git commit -m "feat: add dark mode toggle"`.
+- [ ] **Step 4: Manual check (Muhammad, Safari):**
+  - **Dark mode** turns the whole app panel dark, including the empty space below the table.
+  - The badges keep their colours (red, yellow, green, grey), and the text stays readable.
+  - The Cold Brew sales window is dark: its backdrop stays dark, it sits centred, and the chart line is visible.
+  - Reloading the page keeps dark mode. **Light mode** puts everything back.
+- [ ] **Step 5: Review and explain.**
+  - Run `ponytail:ponytail-review` on the task's commits.
+  - Add a study guide section covering CSS `filter` (`invert` plus `hue-rotate`), why images are flipped back, `localStorage`, and `useEffect`.
+  - Commit, push `dev`, and merge per Global Constraints.
+
+---
+
+### Task 9: Dev testing on the store
 
 **Files:**
 - Create: `docs/testing.md` (checklist with results and date)
@@ -586,7 +619,7 @@ end
 
 ---
 
-### Task 9: Documentation
+### Task 10: Documentation
 
 **Files:**
 - Create/replace: `README.md`
@@ -600,7 +633,7 @@ end
 
 ---
 
-### Task 10: Demo
+### Task 11: Demo
 
 **Files:**
 - Create: `docs/demo/script.md`, `docs/demo/demo.gif`
@@ -613,7 +646,7 @@ end
 
 ---
 
-### Task 11: Publish and update the resume
+### Task 12: Publish and update the resume
 
 **Files:**
 - Modify: the resume generator script on the Windows PC at `C:\Users\Moe\Documents\Resumes\Muhammad\generator\build2.js` (run `node build2.js "<output>.docx"` there), its output `Muhammad Waheed Resume 2026.docx` and `.pdf`. It holds personal contact info, so it never goes in this public repo. Do this step on the PC, or copy the folder to the Mac privately.
@@ -630,8 +663,8 @@ end
 | Dates | Tasks |
 |---|---|
 | Nov 5 | 1 to 6 (done) |
-| Nov 6 to 13 | 7 |
-| Nov 14 to 16 | 8 |
-| Nov 17 to 19 | 9, 10 |
-| Nov 20 to 21 | 11 |
+| Nov 6 to 13 | 7, 8 |
+| Nov 14 to 16 | 9 |
+| Nov 17 to 19 | 10, 11 |
+| Nov 20 to 21 | 12 |
 | Nov 22 to Dec 1 | Buffer |

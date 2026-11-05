@@ -27,6 +27,7 @@ Success means an interviewer can watch a 1 to 2 minute demo, open the repo, read
 5. Automated tests for the forecasting logic and the API endpoint.
 6. Documentation: README, architecture notes, a demo video, and a GIF in the README.
 7. Clicking a row's risk badge opens a small window with that variant's units sold over the last 7 days, 30 days and 8 weeks, as a line chart (added 2026-11-05 at Muhammad's request; see "Sales history window").
+8. A Dark mode / Light mode button that darkens the app's panel (added 2026-11-05 at Muhammad's request; see "Dark mode").
 
 ## 3. Non-goals (agreed cuts)
 
@@ -123,6 +124,12 @@ How it works:
   The 7-day range has 7 points and the 30-day range has 30. The 8-week range has 8 points, and each point's `date` is the first day of its week. The frontend adds up each range for the totals line.
 - Each click fetches every order from the last 8 weeks and keeps only that variant's lines. The code marks this as a `shortcut:` comment (fine for a development store; filter or cache if order volume grows).
 - The longest range is 8 weeks, not a year, because `read_orders` only returns the last 60 days. A year would need the `read_all_orders` scope, which needs Shopify's approval for Partner apps. Muhammad chose not to request it (2026-11-05).
+
+### Dark mode
+
+- A "Dark mode" button next to Refresh ("Light mode" while on) puts a `dark` class on the page. CSS inverts the colours and rotates hues back (`filter: invert(1) hue-rotate(180deg)`), so badges keep their colours. Images and the modal backdrop are flipped back.
+- The choice is saved in the browser's `localStorage`. It resets when `shopify app dev` gets a new tunnel address.
+- Limits: only the app's panel goes dark (the admin around it does not change), shadows become faint light edges, and colours shift slightly. The upgrade, if it looks off, is a hand-picked set of Polaris colour variables.
 
 ### Seed scenario
 
