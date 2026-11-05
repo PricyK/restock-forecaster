@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { Banner, Modal, SkeletonBodyText, Tabs, Text } from "@shopify/polaris";
+import { Banner, Modal, SkeletonBodyText, Tabs } from "@shopify/polaris";
 import { useQuery } from "react-query";
 
 import { fetchJson } from "../utils/fetchJson";
 import { SalesChart } from "./SalesChart";
-
-const sum = (points) => points.reduce((total, p) => total + p.units, 0);
 
 // row is a forecast row, or null while the window is closed.
 export function SalesHistoryModal({ row, onClose }) {
@@ -41,27 +39,16 @@ export function SalesHistoryModal({ row, onClose }) {
           </Banner>
         )}
         {data && (
-          <>
-            <Text as="p">
-              Sold:{" "}
-              {data.ranges
-                .map((r) => `${sum(r.points)} in ${r.label}`)
-                .join(" · ")}
-            </Text>
-            <Tabs
-              tabs={data.ranges.map((r, i) => ({
-                id: `range-${i}`,
-                content: r.label,
-              }))}
-              selected={tab}
-              onSelect={setTab}
-            >
-              <SalesChart
-                points={range.points}
-                unit={range.label.includes("week") ? "week" : "day"}
-              />
-            </Tabs>
-          </>
+          <Tabs
+            tabs={data.ranges.map((r, i) => ({
+              id: `range-${i}`,
+              content: r.label,
+            }))}
+            selected={tab}
+            onSelect={setTab}
+          >
+            <SalesChart range={range} />
+          </Tabs>
         )}
       </Modal.Section>
     </Modal>

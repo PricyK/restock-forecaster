@@ -3,18 +3,27 @@
 require "test_helper"
 
 class SeedScenarioTest < ActiveSupport::TestCase
-  NOW = Time.utc(2026, 11, 10, 12)
+  TODAY = Date.new(2026, 11, 10)
+  ZONE = "America/New_York"
 
   test "orders total match the scenario" do
-    orders = SeedScenario.orders(now: NOW)
-    assert_equal({ "A" => 10, "B" => 60, "C" => 45, "D" => 30 }, totals(recent(orders)))
-    assert_equal({ "A" => 16, "B" => 78, "C" => 63, "D" => 48, "E" => 12 }, totals(orders))
+    assert_equal({ "A" => 62, "B" => 60, "C" => 45, "D" => 30 }, totals(recent(orders)))
+    assert_equal({ "A" => 94, "B" => 84, "C" => 69, "D" => 54, "E" => 16 }, totals(orders))
   end
 
-  test "10 orders in the 30 day window and 6 older ones inside 8 weeks" do
-    orders = SeedScenario.orders(now: NOW)
-    assert_equal [10, 16], [recent(orders).size, orders.size]
-    assert(orders.all? { _1[:processed_at].to_date >= NOW.to_date - (SalesHistory::DAYS - 1) && _1[:processed_at] < NOW })
+  test "one order at noon on each of the 29 days before today, 8 older ones inside 8 weeks" do
+    assert_equal ((TODAY - 29)..(TODAY - 1)).to_a, recent(orders).map { _1[:processed_at].to_date }
+    assert_equal 37, orders.size
+    assert(orders.all? { _1[:processed_at].to_date >= TODAY - (SalesHistory::DAYS - 1) && _1[:processed_at].hour == 12 })
+  end
+
+  test "Cold Brew's chart climbs week by week" do
+    daily = orders.each_with_object(Hash.new(0)) do |order, days|
+      order[:lines].each { |l| days[order[:processed_at].to_date] += l[:quantity] if l[:key] == "B" }
+    end
+    ranges = SalesHistory.call(daily_units: daily, today: TODAY)
+    assert_equal [19, 60, 84], ranges.map { |r| r[:points].sum { _1[:units] } }
+    assert_equal [6, 6, 6, 8, 9, 13, 17, 19], ranges.last[:points].map { _1[:units] }
   end
 
   test "every product has a unique key" do
@@ -25,15 +34,17 @@ class SeedScenarioTest < ActiveSupport::TestCase
     products = SeedScenario.products
     rows = Forecast.call(
       variants: products.map { |p| { id: p[:key], product_title: p[:title], variant_title: nil, sku: nil, inventory: p[:inventory] } },
-      units_sold: totals(recent(SeedScenario.orders(now: NOW))), today: NOW.to_date)
+      units_sold: totals(recent(orders)), today: TODAY)
     assert_equal %w[out_of_stock critical warning ok no_recent_sales], rows.map { _1[:risk] }
     assert_equal [0, 3, 13, 100, nil], rows.map { _1[:days_left] }
   end
 
   private
 
+  def orders = SeedScenario.orders(today: TODAY, zone: ZONE)
+
   # Orders inside the forecast's 30 days (today and the 29 days before it).
-  def recent(orders) = orders.select { _1[:processed_at].to_date >= NOW.to_date - (Forecast::WINDOW_DAYS - 1) }
+  def recent(orders) = orders.select { _1[:processed_at].to_date >= TODAY - (Forecast::WINDOW_DAYS - 1) }
 
   def totals(orders)
     orders.flat_map { _1[:lines] }.group_by { _1[:key] }.transform_values { |lines| lines.sum { _1[:quantity] } }

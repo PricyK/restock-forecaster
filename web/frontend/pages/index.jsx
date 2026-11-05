@@ -25,11 +25,17 @@ const RISK_BADGES = {
   no_recent_sales: { label: "No recent sales" },
 };
 
-const SUMMARY = [
-  ["critical", "critical"],
-  ["warning", "warning"],
-  ["out_of_stock", "out of stock"],
-];
+const SUMMARY_RISKS = ["out_of_stock", "critical", "warning"];
+
+// The strong class gives "Out of stock" a deeper red than "Critical" (see index.html).
+function RiskBadge({ risk }) {
+  const badge = RISK_BADGES[risk];
+  return (
+    <span className={badge.strong ? "badge-strong" : undefined}>
+      <RiskBadge risk={row.risk} />
+    </span>
+  );
+}
 
 // Dates arrive as "YYYY-MM-DD". Formatting in UTC stops the browser's time zone from shifting the day.
 function formatDate(iso) {
@@ -42,14 +48,26 @@ function formatDate(iso) {
   });
 }
 
-function summarize(rows) {
-  const parts = SUMMARY.map(([risk, label]) => [
-    rows.filter((row) => row.risk === risk).length,
-    label,
-  ])
-    .filter(([count]) => count > 0)
-    .map(([count, label]) => `${count} ${label}`);
-  return parts.length > 0 ? parts.join(" · ") : "Nothing at risk";
+// Three equal boxes above the table: how many rows are out of stock, critical, and warning.
+function RiskSummary({ rows }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
+      {SUMMARY_RISKS.map((risk, i) => (
+        <div
+          key={risk}
+          style={{
+            textAlign: "center",
+            borderLeft: i > 0 ? "1px solid var(--p-divider)" : undefined,
+          }}
+        >
+          <RiskBadge risk={risk} />
+          <Text as="p" variant="heading2xl">
+            {rows.filter((row) => row.risk === risk).length}
+          </Text>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ForecastTable({ rows, onSelect }) {
@@ -68,9 +86,7 @@ function ForecastTable({ rows, onSelect }) {
   return (
     <Card>
       <Card.Section>
-        <Text as="p" variant="headingMd">
-          {summarize(rows)}
-        </Text>
+        <RiskSummary rows={rows} />
       </Card.Section>
       <DataTable
         columnContentTypes={[
@@ -94,7 +110,6 @@ function ForecastTable({ rows, onSelect }) {
           "Risk",
         ]}
         rows={rows.map((row) => {
-          const badge = RISK_BADGES[row.risk];
           return [
             row.product_title,
             row.variant_title ?? "",
@@ -106,13 +121,11 @@ function ForecastTable({ rows, onSelect }) {
             // The label replaces the badge text for screen readers, so it keeps the risk word.
             <UnstyledButton
               key={row.id}
-              className={
-                badge.strong ? "badge-button badge-strong" : "badge-button"
-              }
-              accessibilityLabel={`${badge.label}: sales history for ${row.product_title}`}
+              className="badge-button"
+              accessibilityLabel={`${RISK_BADGES[row.risk].label}: sales history for ${row.product_title}`}
               onClick={() => onSelect(row)}
             >
-              <Badge status={badge.status}>{badge.label}</Badge>
+              <RiskBadge risk={row.risk} />
             </UnstyledButton>,
           ];
         })}
