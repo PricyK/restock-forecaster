@@ -250,3 +250,51 @@ Two known limits are marked with `shortcut:` comments: refunds aren't subtracted
 ### Testing without Shopify
 
 The tests pass in a `FakeClient` instead of the real GraphQL client. It has the same `query(query:, variables:)` method, returns prepared answers, and records what it was asked, so a test can check, for example, that the second request used the cursor from the first. This works because `ShopifyStoreData.new(client)` takes the client as an argument instead of building it itself (**dependency injection**). The live check ran the real thing against the dev store: units sold came back as 10 / 60 / 45 / 30, matching the seed.
+
+## Task 5: The endpoint (`GET /api/forecast`)
+
+This is where the pieces meet: a request comes in, the controller asks `ShopifyStoreData` for the store's data, hands it to `Forecast`, and sends the rows back as JSON.
+
+### Route → controller → services → JSON
+
+1. **Route** (`web/config/routes.rb`): inside `scope path: :api, format: :json do ... end`, the line `get "/forecast", to: "forecasts#show"` means "a GET to `/api/forecast` runs the `show` method of `ForecastsController`". `bin/rails routes -g forecast` lists it.
+2. **Controller** (`web/app/controllers/forecasts_controller.rb`): `show` builds a GraphQL client for this store's session, wraps it in `ShopifyStoreData`, gets today's date and 30 days of sales, and calls `Forecast`.
+3. **JSON**: `render(json: { generated_on: ..., rows: ... })` turns the Ruby hash into JSON. Ruby `Date`s become `"2026-11-13"`, and symbol keys become plain strings:
+
+```json
+{ "generated_on": "2026-11-05",
+  "rows": [{ "id": "gid://shopify/ProductVariant/...", "product_title": "Cold Brew Can", "variant_title": null,
+             "sku": "SEED-B", "inventory": 6, "daily_rate": 2.0, "days_left": 3,
+             "run_out_date": "2026-11-08", "risk": "critical" }, ...] }
+```
+
+The controller holds no business logic: no math, and no GraphQL text. That's why it's 16 lines.
+
+### How the request is authenticated
+
+`ForecastsController < AuthenticatedController`, and `AuthenticatedController` includes `ShopifyApp::EnsureHasSession`. That adds an `around_action` (code that runs before and after every action) which:
+
+1. reads the **session token** the React page sends in the `Authorization: Bearer ...` header. App Bridge adds it to every request the page makes. It's a short-lived JWT (a signed JSON message) saying "this request is from store X, user Y", signed with the app's secret;
+2. checks the signature and expiry, and answers `401` if they're wrong. App Bridge then gets a fresh token and retries;
+3. loads that store's saved access token from the `shops` table (`current_shopify_session`), exchanging for a new one if it has expired.
+
+So by the time `show` runs, we know which store is asking, and we hold a token for it. Nobody can call `/api/forecast` for a store they aren't logged into.
+
+### Why 502, and the 401 retry
+
+When Shopify fails (it's down, rate-limiting us, or returns GraphQL `errors`), it's not our server's fault, and it's not the user's. `502 Bad Gateway` is the HTTP status for "the server I depend on failed". The body is always `{ "error": "Couldn't load data from Shopify. Try again." }`, so the page can show that sentence without leaking Shopify's internal error text. The real error goes to the log (`logger.error`).
+
+One error is handled differently. A `401` from Shopify means our saved access token was rejected, for example after the app was reinstalled. `with_token_refetch` (from `shopify_app`, the same helper the template's product counter uses) catches that, trades the session token for a new access token, and runs the block once more. Only if that also fails does it become a 502. The Shopify calls sit inside the block and the `rescue` sits outside it, so the retry gets its chance first. The test "retries once with a fresh token after a 401" fails if the block is removed.
+
+### Time zones
+
+"Today" decides every run-out date. Rails runs in UTC by default, but the store is in New York (UTC−5), so from 7 p.m. New York time the UTC date is already tomorrow. `ShopifyStoreData#today` asks Shopify for the store's time zone (`shop { ianaTimezone }`, here `America/New_York`) and converts: `Time.current.in_time_zone("America/New_York").to_date`. A test pins 9 p.m. on Nov 5 in New York (2 a.m. Nov 6 UTC) and expects Nov 5.
+
+### Controller tests
+
+`web/test/controllers/forecasts_controller_test.rb` makes real HTTP requests to the app in memory (`ActionDispatch::IntegrationTest`) with two things faked:
+
+- the **session**, with `setup_shopify_session` from `shopify_app`'s test helpers, which stubs how the session is looked up;
+- the **store data**, with `ShopifyStoreData.stubs(:new).returns(@data)`, where `@data` is a stand-in with fixed answers (mocha's `stub(...)`).
+
+Everything in between (routing, the auth wrapper, the controller, `Forecast`, JSON rendering) runs for real. The tests check the rows and dates, the 30-day window, both kinds of Shopify failure, and the 401 retry.
