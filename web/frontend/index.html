@@ -20,12 +20,17 @@
     <meta name="shopify-api-key" content="%VITE_SHOPIFY_API_KEY%" />
     <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
     <style>
-      /* Polaris's UnstyledButton keeps the browser's button look (grey box in Safari); strip it so the badge is the button. */
-      .badge-button { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; border-radius: var(--p-border-radius-full); }
+      /* Polaris's UnstyledButton keeps the browser's button look (grey box in Safari); strip it so the content is the button. */
+      .badge-button, .summary-button { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; }
+      .badge-button { border-radius: var(--p-border-radius-full); }
       .badge-button:hover { filter: brightness(0.88); } /* deepens any badge colour, no per-colour rules */
       /* Polaris 10 has one critical badge colour; out of stock gets its strong red so it stands apart from critical. */
       .badge-strong .Polaris-Badge { background-color: var(--p-color-bg-critical-strong); color: var(--p-color-text-on-color); }
-      .badge-button:focus-visible { outline: 2px solid var(--p-focused); outline-offset: 2px; }
+      .summary-button { width: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--p-space-2); padding: var(--p-space-2); border-radius: var(--p-border-radius-2); }
+      .summary-button:hover:not(:disabled) { background: var(--p-surface-hovered); }
+      .summary-button[aria-pressed="true"] { background: var(--p-surface-selected); box-shadow: inset 0 0 0 1px var(--p-interactive); }
+      .summary-button:disabled { cursor: default; }
+      .badge-button:focus-visible, .summary-button:focus-visible { outline: 2px solid var(--p-focused); outline-offset: 2px; }
     </style>
   </head>
   <body>

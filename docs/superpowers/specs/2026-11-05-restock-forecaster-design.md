@@ -21,7 +21,7 @@ Success means an interviewer can watch a 1 to 2 minute demo, open the repo, read
 ## 2. Goals
 
 1. An embedded app that opens inside the Shopify admin of a development store.
-2. One page: an "at-risk products" table showing, per variant, its category, SKU, stock on hand, days of stock left, and a risk badge. (Changed 2026-11-05 at Muhammad's request: the sold/day and run-out date columns were removed as clutter, though the forecast still computes both, and a Category column was added.)
+2. One page: an "at-risk products" table showing, per variant, its category, SKU, stock on hand, and a risk badge. (Changed 2026-11-05 at Muhammad's request: the sold/day, run-out date and days-left columns were removed as clutter, and a Category column was added. The forecast still computes all three, and the risk badge is based on days left.)
 3. Data comes live from the Shopify GraphQL Admin API each time the page loads or the user presses Refresh.
 4. A repeatable seed script that fills a development store with products and backdated orders forming a known scenario, so the demo always shows a mix of risk levels.
 5. Automated tests for the forecasting logic and the API endpoint.
@@ -94,7 +94,7 @@ The forecasting logic lives in one plain Ruby class with no Shopify dependency, 
 3. The Rails controller queries the GraphQL Admin API for variants with inventory and for orders from the last 30 days, passes the results to the forecast class, and returns JSON.
 4. The page renders a Polaris table with risk badges and a Refresh button, plus loading, empty, and error states.
 
-The table shows every variant, not only at-risk ones, so the sort order puts the at-risk rows on top. The empty state means "this store has no products". Above the table, three equal boxes show how many rows are out of stock, critical and warning, in that order, each under the same badge the table uses (changed 2026-11-05 at Muhammad's request; it replaced a one-line summary). "Out of stock" uses Polaris's strong red so it stands apart from "Critical". Hovering a badge deepens its colour.
+The table shows every variant, not only at-risk ones, so the sort order puts the at-risk rows on top. The empty state means "this store has no products". Above the table, three equal boxes show how many rows are out of stock, critical and warning, in that order, each under the same badge the table uses (changed 2026-11-05 at Muhammad's request; it replaced a one-line summary). "Out of stock" uses Polaris's strong red so it stands apart from "Critical". Hovering a badge deepens its colour. Clicking a box shows only that risk's rows, and clicking it again shows all. A box with a count of 0 can't be clicked. If a refresh drops the selected risk's count to 0, the filter clears, so the table never shows empty.
 
 ### Sales history window
 
