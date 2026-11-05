@@ -106,6 +106,7 @@ function ForecastTable({ rows, onSelect }) {
             // The label replaces the badge text for screen readers, so it keeps the risk word.
             <UnstyledButton
               key={row.id}
+              className="badge-button"
               accessibilityLabel={`${badge.label}: sales history for ${row.product_title}`}
               onClick={() => onSelect(row)}
             >

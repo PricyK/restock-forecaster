@@ -19,6 +19,11 @@
 
     <meta name="shopify-api-key" content="%VITE_SHOPIFY_API_KEY%" />
     <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+    <style>
+      /* Polaris's UnstyledButton keeps the browser's button look (grey box in Safari); strip it so the badge is the button. */
+      .badge-button { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; border-radius: var(--p-border-radius-full); }
+      .badge-button:focus-visible { outline: 2px solid var(--p-focused); outline-offset: 2px; }
+    </style>
   </head>
   <body>
     <div id="app"><!--index.jsx injects App.jsx here--></div>
