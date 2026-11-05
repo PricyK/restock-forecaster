@@ -46,7 +46,10 @@ function RiskSummary({ rows }) {
         <div
           key={risk}
           style={{
-            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "var(--p-space-3)",
             borderLeft: i > 0 ? "1px solid var(--p-divider)" : undefined,
           }}
         >
