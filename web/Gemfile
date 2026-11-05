@@ -75,6 +75,8 @@ group :test do
   gem "webdrivers"
   gem "webmock"
   gem "mocha"
+  gem "minitest", "~> 5.25" # Rails 7.1's test runner breaks on minitest 6
 end
 
 gem "shopify_app", "~> 23.0"
+gem "ostruct" # shopify_api 16.3.1 uses OpenStruct without requiring it
