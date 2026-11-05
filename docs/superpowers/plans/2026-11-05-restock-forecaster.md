@@ -551,7 +551,7 @@ end
     - The table still matches the spec's seed table.
     - Cold Brew Can's badge opens a "Cold Brew Can" window. Under the chart its tabs read "19 sold in the last 7 days", "60 … 30 days" and "84 … 8 weeks", and the 30-day and 8-week lines climb.
     - Pour-Over Kettle's tabs read 0, 0 and 16 sold, and its 8-week line ends at zero.
-    - Above the table, three equal boxes read Out of stock 1, Critical 1, Warning 1.
+    - Above the table, three equal boxes read Out of stock 2, Critical 3, Warning 3 (13 seed products since the 2026-11-05 feedback).
     - The table's columns are Product, Category, SKU, Stock, Risk, and the categories match the spec's seed table.
     - Clicking a box shows only that risk's rows; clicking it again shows all of them.
     - Each of the three tabs switches the chart.

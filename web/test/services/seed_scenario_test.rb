@@ -7,8 +7,8 @@ class SeedScenarioTest < ActiveSupport::TestCase
   ZONE = "America/New_York"
 
   test "orders total match the scenario" do
-    assert_equal({ "A" => 62, "B" => 60, "C" => 45, "D" => 30 }, totals(recent(orders)))
-    assert_equal({ "A" => 94, "B" => 84, "C" => 69, "D" => 54, "E" => 16 }, totals(orders))
+    assert_equal({ "A" => 62, "B" => 60, "C" => 45, "D" => 30 }, totals(recent(orders)).slice("A", "B", "C", "D", "E"))
+    assert_equal({ "A" => 94, "B" => 84, "C" => 69, "D" => 54, "E" => 16 }, totals(orders).slice("A", "B", "C", "D", "E"))
   end
 
   test "one order at noon on each of the 29 days before today, 8 older ones inside 8 weeks" do
@@ -27,8 +27,9 @@ class SeedScenarioTest < ActiveSupport::TestCase
   end
 
   test "every product has a unique key and a category" do
-    assert_equal %w[A B C D E], SeedScenario.products.map { _1[:key] }
-    assert_equal %w[Milk Coffee Coffee Equipment Equipment], SeedScenario.products.map { _1[:type] }
+    assert_equal %w[A B C D E F G H I J K L M], SeedScenario.products.map { _1[:key] }
+    assert_equal %w[Milk Coffee Coffee Equipment Equipment Milk Coffee Equipment Tea Milk Equipment Coffee Equipment],
+      SeedScenario.products.map { _1[:type] }
   end
 
   test "seeded stock and sales give the spec's forecast" do
@@ -36,8 +37,10 @@ class SeedScenarioTest < ActiveSupport::TestCase
     rows = Forecast.call(
       variants: products.map { |p| { id: p[:key], product_title: p[:title], variant_title: nil, sku: nil, inventory: p[:inventory] } },
       units_sold: totals(recent(orders)), today: TODAY)
-    assert_equal %w[out_of_stock critical warning ok no_recent_sales], rows.map { _1[:risk] }
-    assert_equal [0, 3, 13, 100, nil], rows.map { _1[:days_left] }
+    assert_equal %w[F A B G H I J C K L D M E], rows.map { _1[:id] }
+    assert_equal %w[out_of_stock out_of_stock critical critical critical warning warning warning ok ok ok
+                    no_recent_sales no_recent_sales], rows.map { _1[:risk] }
+    assert_equal [0, 0, 3, 5, 6, 10, 12, 13, 40, 60, 100, nil, nil], rows.map { _1[:days_left] }
   end
 
   private

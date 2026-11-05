@@ -144,7 +144,22 @@ A script, run against the development store, creates a small product set and bac
 | D | 100 | 30 (1/day) | OK, 100 days left |
 | E | 25 | 0 | No recent sales |
 
-Categories (product types): A Milk, B and C Coffee, D and E Equipment. The same table doubles as the expected values for a manual check.
+Categories (product types): A Milk, B and C Coffee, D and E Equipment.
+
+Extra products, so each risk level has two or three rows in the demo (added 2026-11-05 at Muhammad's request). They sell evenly every day:
+
+| Product | Category | Stock | Units sold in last 30 days | Expected result |
+|---|---|---|---|---|
+| F Almond Milk 1L | Milk | 0 | 24 | Out of stock |
+| G Espresso Beans 1kg | Coffee | 5 | 30 | Critical, 5 days left |
+| H Paper Filters 100 Pack | Equipment | 12 | 60 | Critical, 6 days left |
+| I Earl Grey Tea 20 Bags | Tea | 10 | 30 | Warning, 10 days left |
+| J Barista Oat Milk 1L | Milk | 18 | 45 | Warning, 12 days left |
+| K Travel Tumbler | Equipment | 40 | 30 | OK, 40 days left |
+| L Decaf Beans 340g | Coffee | 30 | 15 | OK, 60 days left |
+| M Milk Frother | Equipment | 8 | 0 (sold only in the older orders) | No recent sales |
+
+The summary boxes read Out of stock 2, Critical 3, Warning 3. The same tables double as the expected values for a manual check.
 
 Seed details:
 
