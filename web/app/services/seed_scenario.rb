@@ -5,11 +5,11 @@ module SeedScenario
   TAG = "restock-seed"
 
   PRODUCTS = [
-    { key: "A", title: "Oat Milk 1L", inventory: 0, price: "4.99" },
-    { key: "B", title: "Cold Brew Can", inventory: 6, price: "3.50" },
-    { key: "C", title: "Dark Roast Beans 340g", inventory: 20, price: "16.00" },
-    { key: "D", title: "Ceramic Mug", inventory: 100, price: "12.00" },
-    { key: "E", title: "Pour-Over Kettle", inventory: 25, price: "45.00" },
+    { key: "A", title: "Oat Milk 1L", type: "Milk", inventory: 0, price: "4.99" },
+    { key: "B", title: "Cold Brew Can", type: "Coffee", inventory: 6, price: "3.50" },
+    { key: "C", title: "Dark Roast Beans 340g", type: "Coffee", inventory: 20, price: "16.00" },
+    { key: "D", title: "Ceramic Mug", type: "Equipment", inventory: 100, price: "12.00" },
+    { key: "E", title: "Pour-Over Kettle", type: "Equipment", inventory: 25, price: "45.00" },
   ].freeze
 
   module_function

@@ -7,7 +7,7 @@ class ShopifyStoreData
   VARIANTS_QUERY = <<~GQL
     query($after: String) {
       productVariants(first: 250, after: $after) {
-        nodes { id title sku inventoryQuantity inventoryItem { tracked } product { title } }
+        nodes { id title sku inventoryQuantity inventoryItem { tracked } product { title productType } }
         pageInfo { hasNextPage endCursor }
       }
     }
@@ -42,6 +42,7 @@ class ShopifyStoreData
         id: v["id"],
         product_title: v.dig("product", "title"),
         variant_title: (v["title"] unless v["title"] == "Default Title"), # Shopify's name for "no variants"
+        category: v.dig("product", "productType").presence, # Shopify sends "" when the merchant set no type
         sku: v["sku"],
         inventory: v["inventoryQuantity"],
       }

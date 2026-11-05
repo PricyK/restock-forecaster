@@ -3,6 +3,7 @@ import { Banner, Modal, SkeletonBodyText, Tabs } from "@shopify/polaris";
 import { useQuery } from "react-query";
 
 import { fetchJson } from "../utils/fetchJson";
+import { productName } from "../utils/productName";
 import { SalesChart } from "./SalesChart";
 
 // row is a forecast row, or null while the window is closed.
@@ -16,9 +17,7 @@ export function SalesHistoryModal({ row, onClose }) {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const title = row
-    ? [row.product_title, row.variant_title].filter(Boolean).join(" – ")
-    : "";
+  const title = row ? productName(row) : "";
   const range = data?.ranges[tab];
 
   return (

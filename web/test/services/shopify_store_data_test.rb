@@ -25,9 +25,15 @@ class ShopifyStoreDataTest < ActiveSupport::TestCase
   end
 
   test "maps variants to forecast input" do
-    use variants_page([variant(V1, title: "Large", sku: "CB-1", inventory: 6, product: "Cold Brew Can")])
-    assert_equal [{ id: V1, product_title: "Cold Brew Can", variant_title: "Large", sku: "CB-1", inventory: 6 }],
+    use variants_page([variant(V1, title: "Large", sku: "CB-1", inventory: 6, product: "Cold Brew Can", type: "Coffee")])
+    assert_equal [{ id: V1, product_title: "Cold Brew Can", variant_title: "Large", category: "Coffee", sku: "CB-1",
+                    inventory: 6 }],
       data.variants
+  end
+
+  test "blank product type becomes nil" do
+    use variants_page([variant(V1, type: "")])
+    assert_nil data.variants.first[:category]
   end
 
   test "default title becomes nil" do
@@ -116,9 +122,9 @@ class ShopifyStoreDataTest < ActiveSupport::TestCase
     ShopifyStoreData.new(client)
   end
 
-  def variant(id, title: "Default Title", sku: nil, inventory: 1, tracked: true, product: "Product")
+  def variant(id, title: "Default Title", sku: nil, inventory: 1, tracked: true, product: "Product", type: "")
     { "id" => id, "title" => title, "sku" => sku, "inventoryQuantity" => inventory,
-      "inventoryItem" => { "tracked" => tracked }, "product" => { "title" => product } }
+      "inventoryItem" => { "tracked" => tracked }, "product" => { "title" => product, "productType" => type } }
   end
 
   def order(lines, cancelled_at: nil, processed_at: "2026-11-05T15:00:00Z")

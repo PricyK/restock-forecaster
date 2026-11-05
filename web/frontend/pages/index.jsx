@@ -16,6 +16,7 @@ import { useQuery } from "react-query";
 import { notFoundImage } from "../assets";
 import { SalesHistoryModal } from "../components";
 import { fetchJson } from "../utils/fetchJson";
+import { productName } from "../utils/productName";
 
 const RISK_BADGES = {
   out_of_stock: { status: "critical", label: "Out of stock", strong: true },
@@ -35,17 +36,6 @@ function RiskBadge({ risk }) {
       <RiskBadge risk={row.risk} />
     </span>
   );
-}
-
-// Dates arrive as "YYYY-MM-DD". Formatting in UTC stops the browser's time zone from shifting the day.
-function formatDate(iso) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 // Three equal boxes above the table: how many rows are out of stock, critical, and warning.
@@ -95,34 +85,21 @@ function ForecastTable({ rows, onSelect }) {
           "text",
           "numeric",
           "numeric",
-          "numeric",
-          "text",
           "text",
         ]}
-        headings={[
-          "Product",
-          "Variant",
-          "SKU",
-          "Stock",
-          "Sold/day",
-          "Days left",
-          "Runs out",
-          "Risk",
-        ]}
+        headings={["Product", "Category", "SKU", "Stock", "Days left", "Risk"]}
         rows={rows.map((row) => {
           return [
-            row.product_title,
-            row.variant_title ?? "",
+            productName(row),
+            row.category ?? "—",
             row.sku ?? "",
             row.inventory,
-            row.daily_rate,
             row.days_left ?? "—",
-            formatDate(row.run_out_date),
             // The label replaces the badge text for screen readers, so it keeps the risk word.
             <UnstyledButton
               key={row.id}
               className="badge-button"
-              accessibilityLabel={`${RISK_BADGES[row.risk].label}: sales history for ${row.product_title}`}
+              accessibilityLabel={`${RISK_BADGES[row.risk].label}: sales history for ${productName(row)}`}
               onClick={() => onSelect(row)}
             >
               <RiskBadge risk={row.risk} />

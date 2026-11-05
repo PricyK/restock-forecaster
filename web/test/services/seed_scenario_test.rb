@@ -26,8 +26,9 @@ class SeedScenarioTest < ActiveSupport::TestCase
     assert_equal [6, 6, 6, 8, 9, 13, 17, 19], ranges.last[:points].map { _1[:units] }
   end
 
-  test "every product has a unique key" do
+  test "every product has a unique key and a category" do
     assert_equal %w[A B C D E], SeedScenario.products.map { _1[:key] }
+    assert_equal %w[Milk Coffee Coffee Equipment Equipment], SeedScenario.products.map { _1[:type] }
   end
 
   test "seeded stock and sales give the spec's forecast" do

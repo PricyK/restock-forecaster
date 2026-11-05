@@ -50,7 +50,7 @@ namespace :restock do
 
       variant_ids = SeedScenario.products.to_h do |p|
         data = gql.call(product_set, { input: {
-          title: p[:title], tags: [SeedScenario::TAG], status: "ACTIVE",
+          title: p[:title], productType: p[:type], tags: [SeedScenario::TAG], status: "ACTIVE",
           productOptions: [{ name: "Title", values: [{ name: "Default Title" }] }],
           variants: [{
             optionValues: [{ optionName: "Title", name: "Default Title" }],
