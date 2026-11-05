@@ -1,91 +1,165 @@
 import {
+  Badge,
+  Banner,
   Card,
-  Page,
+  DataTable,
+  EmptyState,
   Layout,
-  TextContainer,
-  Image,
-  Stack,
-  Link,
+  Page,
+  SkeletonBodyText,
   Text,
 } from "@shopify/polaris";
-import { TitleBar } from "@shopify/app-bridge-react";
-import { useTranslation, Trans } from "react-i18next";
+import { useQuery } from "react-query";
 
-import { trophyImage } from "../assets";
+import { notFoundImage } from "../assets";
 
-import { ProductsCard } from "../components";
+const RISK_BADGES = {
+  out_of_stock: { status: "critical", label: "Out of stock" },
+  critical: { status: "critical", label: "Critical" },
+  warning: { status: "warning", label: "Warning" },
+  ok: { status: "success", label: "OK" },
+  no_recent_sales: { label: "No recent sales" },
+};
+
+const SUMMARY = [
+  ["critical", "critical"],
+  ["warning", "warning"],
+  ["out_of_stock", "out of stock"],
+];
+
+const FALLBACK_ERROR = "Couldn't load data from Shopify. Try again.";
+
+// App Bridge adds the session token to fetch() calls, so the Rails endpoint knows which store is asking.
+async function fetchForecast() {
+  const response = await fetch("/api/forecast");
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || FALLBACK_ERROR);
+  return body;
+}
+
+// Dates arrive as "YYYY-MM-DD". Formatting in UTC stops the browser's time zone from shifting the day.
+function formatDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function summarize(rows) {
+  const parts = SUMMARY.map(([risk, label]) => [
+    rows.filter((row) => row.risk === risk).length,
+    label,
+  ])
+    .filter(([count]) => count > 0)
+    .map(([count, label]) => `${count} ${label}`);
+  return parts.length > 0 ? parts.join(" · ") : "Nothing at risk";
+}
+
+function ForecastTable({ rows }) {
+  if (rows.length === 0) {
+    return (
+      <Card sectioned>
+        <EmptyState heading="No products yet" image={notFoundImage}>
+          <p>
+            Add products that track inventory to see when they will run out.
+          </p>
+        </EmptyState>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <Card.Section>
+        <Text as="p" variant="headingMd">
+          {summarize(rows)}
+        </Text>
+      </Card.Section>
+      <DataTable
+        columnContentTypes={[
+          "text",
+          "text",
+          "text",
+          "numeric",
+          "numeric",
+          "numeric",
+          "text",
+          "text",
+        ]}
+        headings={[
+          "Product",
+          "Variant",
+          "SKU",
+          "Stock",
+          "Sold/day",
+          "Days left",
+          "Runs out",
+          "Risk",
+        ]}
+        rows={rows.map((row) => {
+          const badge = RISK_BADGES[row.risk];
+          return [
+            row.product_title,
+            row.variant_title ?? "",
+            row.sku ?? "",
+            row.inventory,
+            row.daily_rate,
+            row.days_left ?? "—",
+            formatDate(row.run_out_date),
+            <Badge key={row.id} status={badge.status}>
+              {badge.label}
+            </Badge>,
+          ];
+        })}
+      />
+    </Card>
+  );
+}
 
 export default function HomePage() {
-  const { t } = useTranslation();
+  const { data, error, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ["forecast"],
+    queryFn: fetchForecast,
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+
   return (
-    <Page narrowWidth>
-      <TitleBar title={t("HomePage.title")} />
+    <Page
+      title="Restock Forecaster"
+      primaryAction={{
+        content: "Refresh",
+        onAction: () => refetch(),
+        loading: isFetching,
+        disabled: isLoading,
+      }}
+    >
       <Layout>
-        <Layout.Section>
-          <Card sectioned>
-            <Stack
-              wrap={false}
-              spacing="extraTight"
-              distribution="trailing"
-              alignment="center"
+        {error && (
+          <Layout.Section>
+            <Banner
+              status="critical"
+              title="Couldn't load the forecast"
+              action={{
+                content: "Retry",
+                onAction: () => refetch(),
+                loading: isFetching,
+              }}
             >
-              <Stack.Item fill>
-                <TextContainer spacing="loose">
-                  <Text as="h2" variant="headingMd">
-                    {t("HomePage.heading")}
-                  </Text>
-                  <p>
-                    <Trans
-                      i18nKey="HomePage.yourAppIsReadyToExplore"
-                      components={{
-                        PolarisLink: (
-                          <Link url="https://polaris.shopify.com/" external />
-                        ),
-                        AdminApiLink: (
-                          <Link
-                            url="https://shopify.dev/api/admin-graphql"
-                            external
-                          />
-                        ),
-                        AppBridgeLink: (
-                          <Link
-                            url="https://shopify.dev/apps/tools/app-bridge"
-                            external
-                          />
-                        ),
-                      }}
-                    />
-                  </p>
-                  <p>{t("HomePage.startPopulatingYourApp")}</p>
-                  <p>
-                    <Trans
-                      i18nKey="HomePage.learnMore"
-                      components={{
-                        ShopifyTutorialLink: (
-                          <Link
-                            url="https://shopify.dev/apps/getting-started/add-functionality"
-                            external
-                          />
-                        ),
-                      }}
-                    />
-                  </p>
-                </TextContainer>
-              </Stack.Item>
-              <Stack.Item>
-                <div style={{ padding: "0 20px" }}>
-                  <Image
-                    source={trophyImage}
-                    alt={t("HomePage.trophyAltText")}
-                    width={120}
-                  />
-                </div>
-              </Stack.Item>
-            </Stack>
-          </Card>
-        </Layout.Section>
+              <p>{error.message}</p>
+            </Banner>
+          </Layout.Section>
+        )}
         <Layout.Section>
-          <ProductsCard />
+          {isLoading && (
+            <Card sectioned>
+              <SkeletonBodyText lines={6} />
+            </Card>
+          )}
+          {data && <ForecastTable rows={data.rows} />}
         </Layout.Section>
       </Layout>
     </Page>

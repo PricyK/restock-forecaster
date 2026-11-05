@@ -52,7 +52,7 @@ docs/                   spec, plan, and this guide
 
 ### API version
 
-Shopify releases a new Admin API version every three months and supports each one for about a year. The template used `2025-10`. This app uses `2026-10`, the newest stable version the installed `shopify_api` gem (16.3.1) knows. It is set in `web/config/initializers/shopify_app.rb` (`config.api_version`), and webhooks use the same version in `shopify.app.toml`. It was checked on the dev store: the template's product counter makes a GraphQL call and got `200 OK`. The log notes that `shopify_api` has no REST helper classes for `2026-10`; that doesn't matter, since this app uses GraphQL only.
+Shopify releases a new Admin API version every three months and supports each one for about a year. The template used `2025-10`. This app uses `2026-10`, the newest stable version the installed `shopify_api` gem (16.3.1) knows. It is set in `web/config/initializers/shopify_app.rb` (`config.api_version`), and webhooks use the same version in `shopify.app.toml`. It was checked on the dev store in Task 1: the template's product counter (removed in Task 6) made a GraphQL call and got `200 OK`. The log notes that `shopify_api` has no REST helper classes for `2026-10`; that doesn't matter, since this app uses GraphQL only.
 
 ### What broke on the first run, and why
 
@@ -116,7 +116,7 @@ Forecast.call(
 
 Because `Forecast` only takes hashes, its tests (`web/test/services/forecast_test.rb`) build tiny inputs by hand and run in milliseconds, with no store, network or login. They pin each risk level, the 7- and 14-day boundaries (for example, 15 in stock at 2 a day is 7.5 days, floored to 7, so critical), zero and negative stock, and the sort order. The code that talks to Shopify (Task 4) only has to produce the input in this shape.
 
-`Forecast < ApplicationService` follows the template's pattern (see `product_counter.rb`): `Forecast.call(...)` is short for `Forecast.new(...).call`.
+`Forecast < ApplicationService` follows the template's pattern (see `web/app/services/application_service.rb`): `Forecast.call(...)` is short for `Forecast.new(...).call`.
 
 ## Task 3: The demo seed (`web/app/services/seed_scenario.rb`, `web/lib/tasks/restock.rake`)
 
@@ -284,7 +284,7 @@ So by the time `show` runs, we know which store is asking, and we hold a token f
 
 When Shopify fails (it's down, rate-limiting us, or returns GraphQL `errors`), it's not our server's fault, and it's not the user's. `502 Bad Gateway` is the HTTP status for "the server I depend on failed". The body is always `{ "error": "Couldn't load data from Shopify. Try again." }`, so the page can show that sentence without leaking Shopify's internal error text. The real error goes to the log (`logger.error`).
 
-One error is handled differently. A `401` from Shopify means our saved access token was rejected, for example after the app was reinstalled. `with_token_refetch` (from `shopify_app`, the same helper the template's product counter uses) catches that, trades the session token for a new access token, and runs the block once more. Only if that also fails does it become a 502. The Shopify calls sit inside the block and the `rescue` sits outside it, so the retry gets its chance first. The test "retries once with a fresh token after a 401" fails if the block is removed.
+One error is handled differently. A `401` from Shopify means our saved access token was rejected, for example after the app was reinstalled. `with_token_refetch` (from the `shopify_app` gem, `ShopifyApp::AdminAPI::WithTokenRefetch`) catches that, trades the session token for a new access token, and runs the block once more. Only if that also fails does it become a 502. The Shopify calls sit inside the block and the `rescue` sits outside it, so the retry gets its chance first. The test "retries once with a fresh token after a 401" fails if the block is removed.
 
 ### Time zones
 
@@ -298,3 +298,51 @@ One error is handled differently. A `401` from Shopify means our saved access to
 - the **store data**, with `ShopifyStoreData.stubs(:new).returns(@data)`, where `@data` is a stand-in with fixed answers (mocha's `stub(...)`).
 
 Everything in between (routing, the auth wrapper, the controller, `Forecast`, JSON rendering) runs for real. The tests check the rows and dates, the 30-day window, both kinds of Shopify failure, and the 401 retry.
+
+## Task 6: The at-risk page (`web/frontend/pages/index.jsx`)
+
+This is the page the merchant sees inside the Shopify admin. It is one React file: it asks Rails for `/api/forecast` and draws the answer as a table.
+
+### React in three ideas
+
+- **Components** are functions that return what to draw. The HTML-like syntax inside JavaScript is called JSX. `HomePage` is the whole page; `ForecastTable` draws the summary line and the table.
+- **Props** are a component's inputs. `<ForecastTable rows={data.rows} />` passes the rows in, and `function ForecastTable({ rows })` receives them.
+- **Hooks** are functions whose names start with `use`. They give a component memory or let it fetch things. `useQuery` (from the react-query library) runs the fetch and draws the page again when the answer arrives.
+
+### How the page talks to Rails
+
+1. When the page first draws, `useQuery` calls `fetchForecast`, which runs `fetch("/api/forecast")`.
+2. App Bridge (the `app-bridge.js` script in `web/frontend/index.html`) adds the session token to that request. That is the `Authorization: Bearer ...` header from Task 5's "How the request is authenticated". The page code never touches the token.
+3. In development, Vite (the tool that serves the frontend) forwards anything under `/api` to Rails. See the `proxy` block in `web/frontend/vite.config.js`.
+4. If the answer is not OK (for example the 502), `fetchForecast` throws an error carrying the server's `error` sentence, and the page shows it.
+5. **Refresh** calls `refetch()`, which runs the same fetch again.
+
+### The four states
+
+- **Loading** (first load, no data yet): a grey placeholder (`SkeletonBodyText`).
+- **Error:** a red `Banner` with the message and a Retry button. If a refresh fails after a good load, the banner sits above the old table instead of wiping it.
+- **Empty** (no rows): `EmptyState` saying "No products yet".
+- **Data:** the summary line and the table.
+
+Two react-query settings change its defaults. `retry: false`: react-query normally retries a failed fetch 3 times, but Rails already retries a 401 once, so a failure should show quickly. `refetchOnWindowFocus: false`: otherwise every switch back to the browser tab would reread 30 days of orders from Shopify.
+
+### Polaris and App Bridge
+
+Polaris is Shopify's React component library, so the app looks like the rest of the admin: `Page` (title and the Refresh button), `Layout`, `Card`, `DataTable`, `Badge`, `Banner`, `EmptyState`, `Text`. This app has Polaris 10, where the colour prop is called `status`. Newer versions call it `tone`, so examples online may not match. `DataTable` was chosen over `IndexTable` because `IndexTable` is for rows you select and act on in bulk, and this table only displays. Every badge has words, not just a colour, so the risk is readable without colour vision.
+
+App Bridge is Shopify's script that connects an embedded app to the admin around it. Here it does two things: it adds the session token to `fetch`, and it sets the app's links in the admin sidebar (`NavMenu` in `web/frontend/App.jsx`). Only the home link is left, so no extra links show under the app's name.
+
+### Small details worth knowing
+
+- `formatDate`: dates arrive as `"2026-11-08"`, and `new Date("2026-11-08")` means midnight UTC. Formatting that in New York time would show Nov 7, so the code formats in UTC (`timeZone: "UTC"`) to keep the day as sent.
+- `summarize` counts rows per risk, drops the zeros, and joins the rest with " · ". With no critical, warning or out-of-stock rows it says "Nothing at risk".
+- `row.variant_title ?? ""`: `??` means "use the right side if the left is `null` or missing".
+- `key={row.id}` on the badge: React asks for a `key` on elements inside a list so it can tell them apart when the list changes.
+
+### Removed in this task
+
+The template's example code: the product counter card (`ProductsCard.jsx`), its endpoint (`ProductsController` and the `/api/products` routes), the services behind it (`ProductCounter`, `ProductCreator`), the example "Page name" page and its sidebar link, the trophy image, and the translation strings only they used. The app now has one page.
+
+### How it was checked
+
+The frontend builds (`npm run build`). On Nov 5, the page in the Ridgeline Coffee Co. admin matched the seed table row for row, and Refresh fetched again. There are no automated React tests, which is a decision in the spec: the frontend is checked by hand and in the demo.
