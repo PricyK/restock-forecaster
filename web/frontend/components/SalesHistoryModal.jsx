@@ -1,10 +1,20 @@
 import { useState } from "react";
-import { Banner, Modal, SkeletonBodyText, Tabs } from "@shopify/polaris";
+import { Banner, Modal, SkeletonBodyText, Tabs, Text } from "@shopify/polaris";
 import { useQuery } from "react-query";
 
 import { fetchJson } from "../utils/fetchJson";
 import { productName } from "../utils/productName";
 import { SalesChart } from "./SalesChart";
+
+// The forecast's days left, in words. The table has no Days left column, so the window says it.
+export function stockLeft(row) {
+  if (row.risk === "out_of_stock") return "Out of stock now.";
+  if (row.days_left === null) {
+    return "No sales in the last 30 days, so no run-out estimate.";
+  }
+  if (row.days_left === 0) return "Less than a day of stock left.";
+  return `About ${row.days_left} ${row.days_left === 1 ? "day" : "days"} of stock left.`;
+}
 
 // row is a forecast row, or null while the window is closed.
 export function SalesHistoryModal({ row, onClose }) {
@@ -22,6 +32,13 @@ export function SalesHistoryModal({ row, onClose }) {
 
   return (
     <Modal open={Boolean(row)} onClose={onClose} title={title} small>
+      {row && (
+        <Modal.Section>
+          <Text as="p" variant="headingMd">
+            {stockLeft(row)}
+          </Text>
+        </Modal.Section>
+      )}
       <Modal.Section>
         {isLoading && <SkeletonBodyText lines={4} />}
         {error && (

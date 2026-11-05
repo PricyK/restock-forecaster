@@ -102,6 +102,7 @@ What the merchant sees:
 
 - Each risk badge is a button, labelled for screen readers with its risk and product, for example "Critical: sales history for Cold Brew Can" (the label replaces the badge text, so it must keep the risk word).
 - Clicking it opens a small Polaris `Modal` titled with the product (and variant) name. The modal's X and the Escape key close it.
+- The window's first line gives the forecast's days left in words: "About 3 days of stock left.", "Less than a day of stock left.", "Out of stock now.", or "No sales in the last 30 days, so no run-out estimate." (added 2026-11-05, since the table has no Days left column).
 - Under the chart, the selected tab's total, for example "19 sold in the last 7 days" (changed 2026-11-05 at Muhammad's request; it replaced a line listing all three totals).
 - Three tabs, **7 days**, **30 days** and **8 weeks**, switch a line chart: dates on the x-axis, units sold on the y-axis. The 7- and 30-day tabs have one point per day. The 8-week tab has one point per week, and each week is a full 7 days ending today.
 - The chart is a small SVG drawing written in the app, with no chart library. It has `role="img"` and a one-sentence description (range and total) for screen readers.
@@ -208,7 +209,7 @@ Seed details:
 - 30-day sales window, and 7 and 14 day risk thresholds.
 - Per-variant results, with stock summed across all locations.
 - Forecasts computed on request; no database tables beyond the template's session storage.
-- No frontend (React) automated tests; the frontend is verified manually and in the demo.
+- Frontend tests: one smoke test (`npm run smoke` in `web/frontend`) renders the page and the chart outside the browser and checks the output. It was added 2026-11-05, after a crash while drawing left a blank page that the build could not see. Everything else in the frontend is checked by hand and in the demo.
 - The public GitHub repo for this project gets linked from the resume, even though the resume currently omits a personal GitHub profile.
 - The table shows all variants, sorted with at-risk ones on top.
 - The seed resets by deleting its own tagged products, and is re-run on testing and recording days.

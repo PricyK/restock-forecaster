@@ -30,7 +30,7 @@
   - Run `ponytail:ponytail-audit` on the whole repo in Task 9.
   - Use `ponytail:ponytail-debt` output as the source of the README's known-limitations list in Task 10.
 - **GitHub (Muhammad's request):** the repo `PricyK/restock-forecaster` is created in Task 1, and every task ends with `git push` so progress shows in real time. Ask Muhammad public or private before creating it. Before every push, check `git status` and the diff for secrets: no `.env`, API secret, access tokens, or SQLite database files.
-- **Branches (Muhammad's request, 2026-11-05):** all work is committed on `dev` and pushed there after every task. `dev` merges into `main` only after the task's checks pass: full `bin/rails test` green, `ponytail:ponytail-review` findings fixed or noted, the secret check above, and, where the task has one, the manual check on the dev store. Merge with `git merge --no-ff dev` on `main`, then push `main`.
+- **Branches (Muhammad's request, 2026-11-05):** all work is committed on `dev` and pushed there after every task. `dev` merges into `main` only after the task's checks pass: full `bin/rails test` green, `npm run smoke` passing in `web/frontend` (added 2026-11-05), `ponytail:ponytail-review` findings fixed or noted, the secret check above, and, where the task has one, the manual check on the dev store. Merge with `git merge --no-ff dev` on `main`, then push `main`.
 - **Machine:** Muhammad's MacBook. Work happens in a clone of `PricyK/restock-forecaster` (created on 2026-11-05 with only these docs). All commands below run in Terminal from `web/` unless stated.
 
 ## Review Focus
