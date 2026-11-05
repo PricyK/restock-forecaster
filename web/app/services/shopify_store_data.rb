@@ -28,6 +28,11 @@ class ShopifyStoreData
     @client = client
   end
 
+  # The shop's local date, so run-out dates match the merchant's calendar (Rails itself runs in UTC).
+  def today
+    Time.current.in_time_zone(fetch("{ shop { ianaTimezone } }").dig("shop", "ianaTimezone")).to_date
+  end
+
   # Only variants that track inventory: an untracked variant's stock number means nothing.
   def variants
     all_nodes(VARIANTS_QUERY, "productVariants").filter_map do |v|
@@ -54,14 +59,18 @@ class ShopifyStoreData
 
   private
 
+  def fetch(query, variables = {})
+    body = @client.query(query: query, variables: variables).body
+    raise Error, body["errors"].to_json if body["errors"]
+
+    body["data"]
+  end
+
   def all_nodes(query, root, variables = {})
     nodes = []
     after = nil
     loop do
-      body = @client.query(query: query, variables: variables.merge(after: after)).body
-      raise Error, body["errors"].to_json if body["errors"]
-
-      page = body.dig("data", root)
+      page = fetch(query, variables.merge(after: after))[root]
       nodes.concat(page["nodes"])
       break unless page.dig("pageInfo", "hasNextPage")
 

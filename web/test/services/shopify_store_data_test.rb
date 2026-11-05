@@ -72,6 +72,13 @@ class ShopifyStoreDataTest < ActiveSupport::TestCase
     assert_includes client.calls.last[:variables][:query], "processed_at:>=2026-10-11"
   end
 
+  test "today is the shop's local date" do
+    use({ "data" => { "shop" => { "ianaTimezone" => "America/New_York" } } })
+    travel_to(Time.utc(2026, 11, 6, 2)) do # 9 p.m. on Nov 5 in New York, already Nov 6 in UTC
+      assert_equal Date.new(2026, 11, 5), data.today
+    end
+  end
+
   test "raises on GraphQL errors" do
     use({ "errors" => [{ "message" => "Throttled" }] })
     assert_raises(ShopifyStoreData::Error) { data.variants }

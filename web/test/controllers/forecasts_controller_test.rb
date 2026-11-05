@@ -14,7 +14,7 @@ class ForecastsControllerTest < ActionDispatch::IntegrationTest
     ShopifyAPI::Context.setup(api_key: "key", api_secret_key: "secret", host: "https://app.test",
       scope: "read_products", is_embedded: true, is_private: false, api_version: "2026-10")
     setup_shopify_session(session_id: "session-1", shop_domain: SHOP).access_token = "token"
-    @data = stub(variants: [VARIANT], units_sold: { VARIANT[:id] => 60 })
+    @data = stub(today: Date.new(2026, 11, 10), variants: [VARIANT], units_sold: { VARIANT[:id] => 60 })
     ShopifyStoreData.stubs(:new).returns(@data)
   end
 
@@ -24,8 +24,8 @@ class ForecastsControllerTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     assert_equal "critical", body["rows"].first["risk"]
     assert_equal 3, body["rows"].first["days_left"]
-    assert_equal (Date.current + 3).iso8601, body["rows"].first["run_out_date"]
-    assert body["generated_on"].match?(/\A\d{4}-\d{2}-\d{2}\z/)
+    assert_equal "2026-11-13", body["rows"].first["run_out_date"]
+    assert_equal "2026-11-10", body["generated_on"]
   end
 
   test "returns 502 when Shopify fails" do
@@ -50,7 +50,7 @@ class ForecastsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "passes a 30 day window" do
-    @data.expects(:units_sold).with(since: Date.current - 30).returns({})
+    @data.expects(:units_sold).with(since: Date.new(2026, 10, 11)).returns({})
     get_forecast
     assert_response :success
   end
