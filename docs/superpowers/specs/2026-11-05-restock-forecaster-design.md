@@ -98,7 +98,7 @@ The table shows every variant, not only at-risk ones, so the sort order puts the
 
 What the merchant sees:
 
-- Each risk badge is a button, labelled for screen readers as "Sales history for <product>".
+- Each risk badge is a button, labelled for screen readers with its risk and product, for example "Critical: sales history for Cold Brew Can" (the label replaces the badge text, so it must keep the risk word).
 - Clicking it opens a small Polaris `Modal` titled with the product (and variant) name. The modal's X and the Escape key close it.
 - A line at the top shows all three totals, for example "Sold: 12 in 7 days · 60 in 30 days · 78 in 8 weeks".
 - Three tabs, **7 days**, **30 days** and **8 weeks**, switch a line chart: dates on the x-axis, units sold on the y-axis. The 7- and 30-day tabs have one point per day. The 8-week tab has one point per week, and each week is a full 7 days ending today.
