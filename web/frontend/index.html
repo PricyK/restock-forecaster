@@ -19,8 +19,6 @@
 
     <meta name="shopify-api-key" content="%VITE_SHOPIFY_API_KEY%" />
     <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-    <!-- Apply saved dark mode before the first paint, so a reload doesn't flash a light screen. Storage may be blocked. -->
-    <script>try { if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark"); } catch {}</script>
     <style>
       /* Polaris's UnstyledButton keeps the browser's button look (grey box in Safari); strip it so the content is the button. */
       .badge-button, .summary-button { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; }
@@ -35,11 +33,6 @@
       /* The window title holds the size button; let the title fill its row so the button sits beside the close X. */
       .window-title { display: flex; align-items: center; justify-content: space-between; gap: var(--p-space-2); }
       h2:has(> .window-title) { flex: 1; }
-      /* Dark mode: invert every colour, then rotate hues back so red stays red and green stays green.
-         Images and the window's dimmed backdrop are flipped back so they look normal.
-         shortcut: inverts colours with a filter instead of a dark palette, replace with Polaris colour variables if colours look off. */
-      html.dark { filter: invert(1) hue-rotate(180deg); }
-      html.dark img, html.dark .Polaris-Backdrop { filter: invert(1) hue-rotate(180deg); }
       .badge-button:focus-visible, .summary-button:focus-visible { outline: 2px solid var(--p-focused); outline-offset: 2px; }
     </style>
   </head>

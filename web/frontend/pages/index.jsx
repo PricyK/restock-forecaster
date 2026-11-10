@@ -10,7 +10,7 @@ import {
   Text,
   UnstyledButton,
 } from "@shopify/polaris";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "react-query";
 
 import { notFoundImage } from "../assets";
@@ -118,32 +118,8 @@ function ForecastTable({ rows, onSelect }) {
   );
 }
 
-// The dark mode choice lives in localStorage. Storage can be blocked (Safari with all cookies blocked
-// throws on access), so then the choice just lasts for this visit instead of crashing the page.
-function storedDark() {
-  try {
-    return localStorage.getItem("theme") === "dark";
-  } catch {
-    return false;
-  }
-}
-
-function storeDark(dark) {
-  try {
-    if (dark) localStorage.setItem("theme", "dark");
-    else localStorage.removeItem("theme");
-  } catch {
-    // blocked storage: nothing to save
-  }
-}
-
 export default function HomePage() {
   const [selected, setSelected] = useState(null);
-  const [dark, setDark] = useState(storedDark);
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark); // the CSS in index.html does the rest
-    storeDark(dark);
-  }, [dark]);
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["forecast"],
     queryFn: () => fetchJson("/api/forecast"),
@@ -160,12 +136,6 @@ export default function HomePage() {
         loading: isFetching,
         disabled: isLoading,
       }}
-      secondaryActions={[
-        {
-          content: dark ? "Light mode" : "Dark mode",
-          onAction: () => setDark(!dark),
-        },
-      ]}
     >
       <Layout>
         {error && (
