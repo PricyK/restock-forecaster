@@ -34,6 +34,7 @@ export function SalesChart({ range }) {
   const last = shortDate(end);
   const labelled = [0, Math.floor((points.length - 1) / 2), points.length - 1];
   const coords = points.map((p, i) => `${x(i)},${y(p.units)}`);
+  const lastIndex = points.length - 1; // today, or the week that includes today
 
   return (
     <>
@@ -92,12 +93,17 @@ export function SalesChart({ range }) {
         {points.map((p, i) => (
           <g key={p.date}>
             {/* Dots on short ranges only; 30 dots would crowd the line. The last point always gets one. */}
-            {(points.length <= 10 || i === points.length - 1) && (
+            {(points.length <= 10 || i === lastIndex) && (
               <circle
                 cx={x(i)}
                 cy={y(p.units)}
                 r={4}
-                fill="var(--p-interactive)"
+                // Hollow on the last point: today is still counting (dashes alone vanish on the 30-point tab).
+                fill={
+                  i === lastIndex ? "var(--p-surface)" : "var(--p-interactive)"
+                }
+                stroke="var(--p-interactive)"
+                strokeWidth={i === lastIndex ? 2 : 0}
               />
             )}
             {/* A full-height strip per point, so hovering anywhere above a date shows its value. */}
@@ -108,7 +114,7 @@ export function SalesChart({ range }) {
               height={PLOT_H}
               fill="transparent"
             >
-              <title>{`${shortDate(p.date)}: ${p.units} sold${i === points.length - 1 ? " so far" : ""}`}</title>
+              <title>{`${shortDate(p.date)}: ${p.units} sold${i === lastIndex ? " so far" : ""}`}</title>
             </rect>
           </g>
         ))}
