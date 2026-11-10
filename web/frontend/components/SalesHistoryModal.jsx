@@ -11,7 +11,8 @@ import { useQuery } from "react-query";
 
 import { fetchJson } from "../utils/fetchJson";
 import { productName } from "../utils/productName";
-import { SalesChart } from "./SalesChart";
+import { RiskBadge } from "./RiskBadge";
+import { SalesChart, rangeTotal } from "./SalesChart";
 
 // Two corner triangles, like the macOS full-screen button: pointing out to expand, in to shrink.
 const ExpandIcon = (props) => (
@@ -27,12 +28,12 @@ const ShrinkIcon = (props) => (
 
 // The forecast's days left, in words. The table has no Days left column, so the window says it.
 export function stockLeft(row) {
-  if (row.risk === "out_of_stock") return "Out of stock now.";
+  if (row.risk === "out_of_stock") return "Out of stock now";
   if (row.days_left === null) {
-    return "No sales in the last 30 days, so no run-out estimate.";
+    return "No sales in the last 30 days, so no run-out estimate";
   }
-  if (row.days_left === 0) return "Less than a day of stock left.";
-  return `About ${row.days_left} ${row.days_left === 1 ? "day" : "days"} of stock left.`;
+  if (row.days_left === 0) return "Less than a day of stock left";
+  return `About ${row.days_left} ${row.days_left === 1 ? "day" : "days"} of stock left`;
 }
 
 // row is a forecast row, or null while the window is closed.
@@ -73,9 +74,7 @@ export function SalesHistoryModal({ row, onClose }) {
     >
       {row && (
         <Modal.Section>
-          <Text as="p" variant="headingMd">
-            {stockLeft(row)}
-          </Text>
+          <RiskBadge risk={row.risk}>{stockLeft(row)}</RiskBadge>
         </Modal.Section>
       )}
       <Modal.Section>
@@ -106,6 +105,14 @@ export function SalesHistoryModal({ row, onClose }) {
           </Tabs>
         )}
       </Modal.Section>
+      {data && (
+        // Its own section, so Polaris adds the same spacing and divider line as the days-left line at the top.
+        <Modal.Section>
+          <Text as="p" variant="headingMd" alignment="center">
+            {rangeTotal(range)} sold in the last {range.label}
+          </Text>
+        </Modal.Section>
+      )}
     </Modal>
   );
 }

@@ -36,6 +36,12 @@ class ShopifyStoreDataTest < ActiveSupport::TestCase
     assert_nil data.variants.first[:category]
   end
 
+  test "lists only active products" do # archived and draft products are not on sale, so they don't belong in the table
+    use variants_page([variant(V1)])
+    data.variants
+    assert_equal "product_status:active", client.calls.first[:variables][:query]
+  end
+
   test "default title becomes nil" do
     use variants_page([variant(V1, title: "Default Title")])
     assert_nil data.variants.first[:variant_title]

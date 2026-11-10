@@ -356,7 +356,7 @@ Clicking a risk badge opens a small window with that item's units sold over the 
 1. Each badge sits inside a Polaris `UnstyledButton` (`web/frontend/pages/index.jsx`). Clicking it calls `onSelect(row)`, and `HomePage` keeps that row in `useState` as `selected`.
 2. `SalesHistoryModal` (`web/frontend/components/SalesHistoryModal.jsx`) opens whenever `selected` is not `null`. Its `useQuery` fetches `/api/sales_history?variant_id=...`. The id goes through `encodeURIComponent`, because a GID like `gid://shopify/ProductVariant/1` contains `:` and `/`. `enabled: Boolean(row)` stops the fetch while the window is closed.
 3. Rails routes the request to `ForecastsController#sales_history`. That action reads the id with `params.require(:variant_id)`, which answers `400` by itself when the id is missing. It then asks `ShopifyStoreData#daily_units` for that variant's sales per day and hands them to `SalesHistory`, which returns the three ranges as JSON.
-4. The window shows three Polaris `Tabs` and the chart for the selected tab, with that range's total underneath ("19 sold in the last 7 days"). `SalesChart` receives the whole range (`{ label, points }`), so it computes the total once for both the caption and the screen-reader sentence.
+4. The window shows three Polaris `Tabs` and the chart for the selected tab, with that range's total underneath ("20 sold in the last 7 days") in its own `Modal.Section`, so Polaris gives it the same spacing and divider line as the days-left line at the top. `rangeTotal(range)` in `SalesChart.jsx` adds the range up, and both that line and the chart's screen-reader sentence use it.
 
 ### One controller, two actions, one `rescue_from`
 
@@ -419,7 +419,7 @@ The test "Cold Brew's chart climbs week by week" runs the seed's orders through 
 
 - **The badge is the button.** Polaris 10's `UnstyledButton` does not remove the browser's own button look: Safari drew a grey box around every badge. A `badge-button` style in `web/frontend/index.html` clears the background, border and padding. A focus ring appears only for keyboard focus (`:focus-visible`), and `filter: brightness(0.88)` deepens any badge's colour on hover.
 - **Out of stock has its own red.** Polaris 10 has one critical badge colour, so "Out of stock" and "Critical" looked the same. A `badge-strong` wrapper switches the out-of-stock badge to Polaris's strong red (`--p-color-bg-critical-strong`) with white text. That is a contrast of about 5.7:1, above the 4.5:1 minimum for small text.
-- **`RiskBadge`** draws a badge for a risk, and both the table and the summary use it, so they always match.
+- **`RiskBadge`** (`web/frontend/components/RiskBadge.jsx`) draws a risk's coloured bubble. The table, the summary boxes and the sales window all use it, so they always match. It shows the risk's name, or whatever text it is given (`children`), which is how the window shows its days-left sentence.
 - **`RiskSummary`** replaces the old one-line summary: three equal boxes (a CSS grid with `repeat(3, 1fr)`) for Out of stock, Critical and Warning. Each box has the badge on top and the count underneath, and thin divider lines separate them.
 - **Clicking a box filters the table.** `ForecastTable` keeps the chosen risk in `useState` (`filter`), and the table shows only rows with that risk. Clicking the same box again sets it back to `null`, which shows all rows. A box with a count of 0 is `disabled`. After a refresh, the line `const active = rows.some((row) => row.risk === filter) ? filter : null` drops a filter whose count fell to 0, so the table never shows empty. `pressed={risk === active}` sets `aria-pressed`, which tells screen readers which box is on, and the CSS uses it to highlight that box.
 
@@ -433,7 +433,7 @@ After the first look in the admin, Muhammad asked for a category per product and
 
 ### Days left, inside the window
 
-The table no longer shows Days left, so the window's first line says it in words. `stockLeft(row)` in `SalesHistoryModal.jsx` turns the forecast row into a sentence: "About 3 days of stock left.", "About 1 day…" (singular), "Less than a day of stock left." (days left is 0 but there is still stock, for example 1 unit selling 2 a day), "Out of stock now.", or, with no recent sales, "No sales in the last 30 days, so no run-out estimate." It uses the row the page already has, so it shows at once, before the chart has loaded. It sits in its own `Modal.Section`, and Polaris puts the spacing and a divider between that section and the tabs.
+The table no longer shows Days left, so the window's first line says it in words. `stockLeft(row)` in `SalesHistoryModal.jsx` turns the forecast row into a sentence: "About 3 days of stock left", "About 1 day…" (singular), "Less than a day of stock left" (days left is 0 but there is still stock, for example 1 unit selling 2 a day), "Out of stock now", or, with no recent sales, "No sales in the last 30 days, so no run-out estimate". It uses the row the page already has, so it shows at once, before the chart has loaded. It sits in its own `Modal.Section`, and Polaris puts the spacing and a divider between that section and the tabs. The sentence is wrapped in the row's risk colour: `<RiskBadge risk={row.risk}>{stockLeft(row)}</RiskBadge>`, the same bubble as the table, with the sentence in place of the risk's name.
 
 ### The smoke test (`web/frontend/test/smoke.jsx`, run with `npm run smoke`)
 
@@ -458,3 +458,18 @@ It also caught a real styling bug on its first run. Polaris's `UnstyledButton` m
 ### Tests
 
 46 Ruby runs in total, plus the smoke test. New: 1 for a blank product type; New: 4 for `SalesHistory`; 1 seed test pinning Cold Brew's chart; 3 for `daily_units` (local day, cancelled orders, one time-zone lookup); and 4 for the endpoint (JSON shape, 8-week window for the requested variant, 400 without an id, 502 when Shopify fails).
+
+## Audit fixes (Nov 10)
+
+After Task 8 was dropped, a whole-repo audit (`ponytail:ponytail-audit`) found five things. All were fixed, plus one it missed:
+
+1. **Only active products.** Shopify's `productVariants` list includes archived and draft products, so a discontinued product with 0 stock would have shown as "Out of stock" forever. `VARIANTS_QUERY` now passes `query: "product_status:active"`; it was tried on the live store first. The test "lists only active products" checks that the filter is sent.
+2. **The translation system is gone.** The template could show the app in other languages, but this app's pages are English only. That setup was 227 lines, 3 language files and 7 packages, and the page waited for it before drawing anything, so a failed load meant a blank page. Polaris now gets its English text directly (`import en from "@shopify/polaris/locales/en.json"` in `PolarisProvider`), the "Not found" page has its words written in, and `index.jsx` just draws `<App />`. The build is also smaller: one JavaScript file instead of one per language.
+3. **Unused test packages removed.** `jsdom`, `vi-fetch` and `history` were left over from a test runner (Vitest) that was never installed, and `npm run coverage` called it and failed. All four are gone.
+4. **Friendly message when the request never arrives.** If Wi-Fi drops or the dev server stops, `fetch` itself fails and Safari's message is just "Load failed". `fetchJson` now turns that into the same "Couldn't load data from Shopify. Try again." sentence.
+5. **RuboCop runs with Shopify's rules.** RuboCop is Ruby's style checker, and `rubocop-shopify` is Shopify's set of rules for it. The settings file was named `rubocop.yml`, without the leading dot, so RuboCop never found it. Renamed to `.rubocop.yml`, plain `bundle exec rubocop` now uses Shopify's rules and reports no problems in 57 files. The one issue it had found (`def self.even`) now sits inside `class << self`, which is Ruby's way of writing several class-level methods together.
+6. **The npm lockfile is committed.** `package-lock.json` records the exact version of every frontend package. The template's `.gitignore` left it out, so a fresh clone of the public repo would install whatever versions were newest. That's the same problem that broke the Ruby side on day one, when `Gemfile.lock` was ignored. It's committed now.
+
+The smoke test gained three checks: the "Not found" page's words, the friendly fetch message, and the Polaris wrapper giving Polaris its English (Pagination's "Next" label comes from those translations). Each check was proved by breaking the code on purpose and watching it fail. A first try used a Banner's "Dismiss notification" label, but that turned out to be written straight into Polaris rather than translated, so it would have passed either way.
+
+`bundle exec rubocop` is now one of the checks before every merge into `main`.

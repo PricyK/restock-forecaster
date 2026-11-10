@@ -5,8 +5,8 @@ class ShopifyStoreData
   class Error < StandardError; end
 
   VARIANTS_QUERY = <<~GQL
-    query($after: String) {
-      productVariants(first: 250, after: $after) {
+    query($after: String, $query: String) {
+      productVariants(first: 250, after: $after, query: $query) {
         nodes { id title sku inventoryQuantity inventoryItem { tracked } product { title productType } }
         pageInfo { hasNextPage endCursor }
       }
@@ -35,7 +35,8 @@ class ShopifyStoreData
 
   # Only variants that track inventory: an untracked variant's stock number means nothing.
   def variants
-    all_nodes(VARIANTS_QUERY, "productVariants").filter_map do |v|
+    # Only active products: archived and draft ones are not on sale.
+    all_nodes(VARIANTS_QUERY, "productVariants", query: "product_status:active").filter_map do |v|
       next unless v.dig("inventoryItem", "tracked")
 
       {

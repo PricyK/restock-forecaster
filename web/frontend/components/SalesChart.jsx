@@ -1,7 +1,9 @@
-import { Text } from "@shopify/polaris";
-
 // A one-line SVG chart. Colours are Polaris CSS variables so a theme change reaches the chart too.
 const PAD = { top: 10, right: 12, bottom: 24, left: 28 };
+
+// Units sold across a range. The window shows it under the chart; the chart puts it in its screen-reader sentence.
+export const rangeTotal = (range) =>
+  range.points.reduce((sum, p) => sum + p.units, 0);
 
 // Dates arrive as "YYYY-MM-DD" (midnight UTC), so format in UTC to keep the day.
 function shortDate(iso) {
@@ -20,7 +22,7 @@ export function SalesChart({ range, wide = false }) {
   const PLOT_H = HEIGHT - PAD.top - PAD.bottom;
   const { label, points } = range;
   const unit = label.includes("week") ? "week" : "day";
-  const total = points.reduce((sum, p) => sum + p.units, 0);
+  const total = rangeTotal(range);
   const top = Math.max(
     2,
     Math.ceil(Math.max(...points.map((p) => p.units)) / 2) * 2,
@@ -37,91 +39,86 @@ export function SalesChart({ range, wide = false }) {
   const lastIndex = points.length - 1; // today, or the week that includes today
 
   return (
-    <>
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        width="100%"
-        role="img"
-        aria-label={`Units sold per ${unit}, ${first} to ${last}: ${total} in total.`}
-        style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}
-      >
-        {[0, top / 2, top].map((tick) => (
-          <g key={tick}>
-            <line
-              x1={PAD.left}
-              x2={WIDTH - PAD.right}
-              y1={y(tick)}
-              y2={y(tick)}
-              stroke="var(--p-border-subdued)"
-              strokeWidth={1}
-            />
-            <text
-              x={PAD.left - 6}
-              y={y(tick)}
-              textAnchor="end"
-              dominantBaseline="middle"
-              fill="var(--p-text-subdued)"
-            >
-              {tick}
-            </text>
-          </g>
-        ))}
-        {labelled.map((i, n) => (
+    <svg
+      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      width="100%"
+      role="img"
+      aria-label={`Units sold per ${unit}, ${first} to ${last}: ${total} in total.`}
+      style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}
+    >
+      {[0, top / 2, top].map((tick) => (
+        <g key={tick}>
+          <line
+            x1={PAD.left}
+            x2={WIDTH - PAD.right}
+            y1={y(tick)}
+            y2={y(tick)}
+            stroke="var(--p-border-subdued)"
+            strokeWidth={1}
+          />
           <text
-            key={i}
-            x={x(i)}
-            y={HEIGHT - 6}
-            textAnchor={["start", "middle", "end"][n]}
+            x={PAD.left - 6}
+            y={y(tick)}
+            textAnchor="end"
+            dominantBaseline="middle"
             fill="var(--p-text-subdued)"
           >
-            {shortDate(points[i].date)}
+            {tick}
           </text>
-        ))}
-        {/* The last point is today, or the week that includes today, so it is still counting: its segment is dashed. */}
-        {[coords.slice(0, -1), coords.slice(-2)].map((segment, i) => (
-          <polyline
-            key={i}
-            points={segment.join(" ")}
-            fill="none"
-            stroke="var(--p-interactive)"
-            strokeWidth={2}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            strokeDasharray={i === 1 ? "4 4" : undefined}
-          />
-        ))}
-        {points.map((p, i) => (
-          <g key={p.date}>
-            {/* Dots on short ranges only; 30 dots would crowd the line. The last point always gets one. */}
-            {(points.length <= 10 || i === lastIndex) && (
-              <circle
-                cx={x(i)}
-                cy={y(p.units)}
-                r={4}
-                // Hollow on the last point: today is still counting (dashes alone vanish on the 30-point tab).
-                fill={
-                  i === lastIndex ? "var(--p-surface)" : "var(--p-interactive)"
-                }
-                stroke="var(--p-interactive)"
-                strokeWidth={i === lastIndex ? 2 : 0}
-              />
-            )}
-            {/* A full-height strip per point, so hovering anywhere above a date shows its value. */}
-            <rect
-              x={x(i) - step / 2}
-              y={PAD.top}
-              width={step}
-              height={PLOT_H}
-              fill="transparent"
-            >
-              <title>{`${shortDate(p.date)}: ${p.units} sold${i === lastIndex ? " so far" : ""}`}</title>
-            </rect>
-          </g>
-        ))}
-      </svg>
-      <Text as="p" variant="headingMd" alignment="center">
-        {total} sold in the last {label}
-      </Text>
-    </>
+        </g>
+      ))}
+      {labelled.map((i, n) => (
+        <text
+          key={i}
+          x={x(i)}
+          y={HEIGHT - 6}
+          textAnchor={["start", "middle", "end"][n]}
+          fill="var(--p-text-subdued)"
+        >
+          {shortDate(points[i].date)}
+        </text>
+      ))}
+      {/* The last point is today, or the week that includes today, so it is still counting: its segment is dashed. */}
+      {[coords.slice(0, -1), coords.slice(-2)].map((segment, i) => (
+        <polyline
+          key={i}
+          points={segment.join(" ")}
+          fill="none"
+          stroke="var(--p-interactive)"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          strokeDasharray={i === 1 ? "4 4" : undefined}
+        />
+      ))}
+      {points.map((p, i) => (
+        <g key={p.date}>
+          {/* Dots on short ranges only; 30 dots would crowd the line. The last point always gets one. */}
+          {(points.length <= 10 || i === lastIndex) && (
+            <circle
+              cx={x(i)}
+              cy={y(p.units)}
+              r={4}
+              // Hollow on the last point: today is still counting (dashes alone vanish on the 30-point tab).
+              fill={
+                i === lastIndex ? "var(--p-surface)" : "var(--p-interactive)"
+              }
+              stroke="var(--p-interactive)"
+              strokeWidth={i === lastIndex ? 2 : 0}
+            />
+          )}
+          {/* A full-height strip per point, so hovering anywhere above a date shows its value. */}
+          <rect
+            x={x(i) - step / 2}
+            y={PAD.top}
+            width={step}
+            height={PLOT_H}
+            fill="transparent"
+          >
+            <title>{`${shortDate(p.date)}: ${p.units} sold${i === lastIndex ? " so far" : ""}`}</title>
+          </rect>
+        </g>
+      ))}
+    </svg>
   );
 }
