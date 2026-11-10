@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Banner, Modal, SkeletonBodyText, Tabs, Text } from "@shopify/polaris";
+import {
+  Banner,
+  Button,
+  Modal,
+  SkeletonBodyText,
+  Tabs,
+  Text,
+} from "@shopify/polaris";
+import { MaximizeMajor, MinimizeMajor } from "@shopify/polaris-icons";
 import { useQuery } from "react-query";
 
 import { fetchJson } from "../utils/fetchJson";
@@ -28,7 +36,20 @@ export function SalesHistoryModal({ row, onClose }) {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const title = row ? productName(row) : "";
+  // The size button sits in the title so it lands just left of the X (see .window-title in index.html).
+  const title = row ? (
+    <span className="window-title">
+      {productName(row)}
+      <Button
+        plain
+        icon={expanded ? MinimizeMajor : MaximizeMajor}
+        accessibilityLabel={expanded ? "Shrink window" : "Expand window"}
+        onClick={() => setExpanded(!expanded)}
+      />
+    </span>
+  ) : (
+    ""
+  );
   const range = data?.ranges[tab];
 
   return (
@@ -38,12 +59,6 @@ export function SalesHistoryModal({ row, onClose }) {
       title={title}
       small={!expanded}
       large={expanded}
-      secondaryActions={[
-        {
-          content: expanded ? "Shrink" : "Expand",
-          onAction: () => setExpanded(!expanded),
-        },
-      ]}
     >
       {row && (
         <Modal.Section>

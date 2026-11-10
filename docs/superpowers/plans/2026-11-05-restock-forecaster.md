@@ -554,7 +554,7 @@ end
     - Above the table, three equal boxes read Out of stock 2, Critical 3, Warning 3 (13 seed products since the 2026-11-05 feedback).
     - The table's columns are Product, Category, SKU, Stock, Risk, and the categories match the spec's seed table.
     - Clicking a box shows only that risk's rows; clicking it again shows all of them.
-    - The window's Expand / Shrink button switches between the small and large sizes; the chart's labels stay the same size.
+    - The expand / shrink icon beside the window's X switches between the small and large sizes; the chart's labels stay the same size.
     - Each of the three tabs switches the chart.
     - The X and the Escape key both close the window.
     - The Tab key reaches a badge, and Enter opens it.
