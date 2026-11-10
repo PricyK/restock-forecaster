@@ -1,5 +1,4 @@
 import {
-  Badge,
   Banner,
   Card,
   DataTable,
@@ -14,29 +13,11 @@ import { useState } from "react";
 import { useQuery } from "react-query";
 
 import { notFoundImage } from "../assets";
-import { SalesHistoryModal } from "../components";
+import { RISK_BADGES, RiskBadge, SalesHistoryModal } from "../components";
 import { fetchJson } from "../utils/fetchJson";
 import { productName } from "../utils/productName";
 
-const RISK_BADGES = {
-  out_of_stock: { status: "critical", label: "Out of stock", strong: true },
-  critical: { status: "critical", label: "Critical" },
-  warning: { status: "warning", label: "Warning" },
-  ok: { status: "success", label: "OK" },
-  no_recent_sales: { label: "No recent sales" },
-};
-
 const SUMMARY_RISKS = ["out_of_stock", "critical", "warning"];
-
-// The strong class gives "Out of stock" a deeper red than "Critical" (see index.html).
-function RiskBadge({ risk }) {
-  const badge = RISK_BADGES[risk];
-  return (
-    <span className={badge.strong ? "badge-strong" : undefined}>
-      <Badge status={badge.status}>{badge.label}</Badge>
-    </span>
-  );
-}
 
 // Three equal boxes above the table. Clicking one shows only that risk's rows; clicking it again shows all.
 function RiskSummary({ rows, active, onFilter }) {

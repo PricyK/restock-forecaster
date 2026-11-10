@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "react-query";
 import HomePage from "../pages/index.jsx";
 import { SalesChart, rangeTotal } from "../components/SalesChart.jsx";
 import { stockLeft } from "../components/SalesHistoryModal.jsx";
+import { RiskBadge } from "../components/RiskBadge.jsx";
 import NotFound from "../pages/NotFound.jsx";
 import { PolarisProvider } from "../components/providers/PolarisProvider.jsx";
 import { fetchJson } from "../utils/fetchJson.js";
@@ -119,6 +120,18 @@ const weekly = renderToStaticMarkup(
 assert.ok(
   weekly.includes("Units sold per week, Oct 23 to Nov 5: 10 in total."),
 );
+
+// The window's days-left sentence sits in the same coloured bubble as the row's risk badge.
+const bubble = (risk) =>
+  renderToStaticMarkup(
+    <AppProvider i18n={en}>
+      <RiskBadge risk={risk}>About 3 days of stock left.</RiskBadge>
+    </AppProvider>,
+  );
+assert.ok(bubble("critical").includes("Polaris-Badge--statusCritical"));
+assert.ok(text(bubble("critical")).includes("About 3 days of stock left."));
+assert.ok(bubble("out_of_stock").includes("badge-strong"));
+assert.ok(!bubble("critical").includes("badge-strong"));
 
 // The days-left sentence in the sales window.
 assert.equal(

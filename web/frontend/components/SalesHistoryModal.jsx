@@ -11,6 +11,7 @@ import { useQuery } from "react-query";
 
 import { fetchJson } from "../utils/fetchJson";
 import { productName } from "../utils/productName";
+import { RiskBadge } from "./RiskBadge";
 import { SalesChart, rangeTotal } from "./SalesChart";
 
 // Two corner triangles, like the macOS full-screen button: pointing out to expand, in to shrink.
@@ -73,9 +74,7 @@ export function SalesHistoryModal({ row, onClose }) {
     >
       {row && (
         <Modal.Section>
-          <Text as="p" variant="headingMd" alignment="center">
-            {stockLeft(row)}
-          </Text>
+          <RiskBadge risk={row.risk}>{stockLeft(row)}</RiskBadge>
         </Modal.Section>
       )}
       <Modal.Section>
