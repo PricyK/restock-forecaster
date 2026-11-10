@@ -21,8 +21,10 @@ module SeedScenario
     { key: "M", title: "Milk Frother", type: "Equipment", inventory: 8, price: "29.00" },
   ].freeze
 
-  # Spreads a 30-day total as evenly as whole units allow (neighbouring days differ by at most 1).
-  def self.even(total) = Array.new(30) { |i| ((i + 1) * total / 30) - (i * total / 30) }
+  class << self
+    # Spreads a 30-day total as evenly as whole units allow (neighbouring days differ by at most 1).
+    def even(total) = Array.new(30) { |i| ((i + 1) * total / 30) - (i * total / 30) }
+  end
 
   module_function
 

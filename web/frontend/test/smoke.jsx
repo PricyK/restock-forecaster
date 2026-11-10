@@ -3,13 +3,16 @@
 // Run with `npm run smoke`. It is not part of the website, so it doesn't affect load speed.
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AppProvider } from "@shopify/polaris";
+import { AppProvider, Pagination } from "@shopify/polaris";
 import en from "@shopify/polaris/locales/en.json";
 import { QueryClient, QueryClientProvider } from "react-query";
 
 import HomePage from "../pages/index.jsx";
 import { SalesChart } from "../components/SalesChart.jsx";
 import { stockLeft } from "../components/SalesHistoryModal.jsx";
+import NotFound from "../pages/NotFound.jsx";
+import { PolarisProvider } from "../components/providers/PolarisProvider.jsx";
+import { fetchJson } from "../utils/fetchJson.js";
 
 const row = (sku, category, days_left, risk, variant_title = null) => ({
   id: `gid://shopify/ProductVariant/${sku}`,
@@ -139,5 +142,38 @@ assert.equal(
   "No sales in the last 30 days, so no run-out estimate.",
 );
 
-console.log("smoke: all checks passed");
-process.exit(0); // react-query keeps a timer running that would hold the process open
+// The "Not found" page has its words without any translation setup.
+const notFound = renderToStaticMarkup(
+  <AppProvider i18n={en}>
+    <NotFound />
+  </AppProvider>,
+);
+assert.ok(text(notFound).includes("There is no page at this address"));
+
+// The app's own Polaris wrapper gives Polaris its English text (Pagination's "Next" label comes from it).
+const wrapped = renderToStaticMarkup(
+  <PolarisProvider>
+    <Pagination hasNext />
+  </PolarisProvider>,
+);
+assert.ok(wrapped.includes('aria-label="Next"'));
+
+// A request that never reaches the server shows the friendly message, not the browser's own.
+globalThis.fetch = () => Promise.reject(new TypeError("Load failed"));
+fetchJson("/api/forecast")
+  .then(
+    () => assert.fail("expected fetchJson to throw"),
+    (error) =>
+      assert.equal(
+        error.message,
+        "Couldn't load data from Shopify. Try again.",
+      ),
+  )
+  .then(() => {
+    console.log("smoke: all checks passed");
+    process.exit(0); // react-query keeps a timer running that would hold the process open
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

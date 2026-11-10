@@ -458,3 +458,18 @@ It also caught a real styling bug on its first run. Polaris's `UnstyledButton` m
 ### Tests
 
 46 Ruby runs in total, plus the smoke test. New: 1 for a blank product type; New: 4 for `SalesHistory`; 1 seed test pinning Cold Brew's chart; 3 for `daily_units` (local day, cancelled orders, one time-zone lookup); and 4 for the endpoint (JSON shape, 8-week window for the requested variant, 400 without an id, 502 when Shopify fails).
+
+## Audit fixes (Nov 10)
+
+After Task 8 was dropped, a whole-repo audit (`ponytail:ponytail-audit`) found five things. All were fixed, plus one it missed:
+
+1. **Only active products.** Shopify's `productVariants` list includes archived and draft products, so a discontinued product with 0 stock would have shown as "Out of stock" forever. `VARIANTS_QUERY` now passes `query: "product_status:active"`; it was tried on the live store first. The test "lists only active products" checks that the filter is sent.
+2. **The translation system is gone.** The template could show the app in other languages, but this app's pages are English only. That setup was 227 lines, 3 language files and 7 packages, and the page waited for it before drawing anything, so a failed load meant a blank page. Polaris now gets its English text directly (`import en from "@shopify/polaris/locales/en.json"` in `PolarisProvider`), the "Not found" page has its words written in, and `index.jsx` just draws `<App />`. The build is also smaller: one JavaScript file instead of one per language.
+3. **Unused test packages removed.** `jsdom`, `vi-fetch` and `history` were left over from a test runner (Vitest) that was never installed, and `npm run coverage` called it and failed. All four are gone.
+4. **Friendly message when the request never arrives.** If Wi-Fi drops or the dev server stops, `fetch` itself fails and Safari's message is just "Load failed". `fetchJson` now turns that into the same "Couldn't load data from Shopify. Try again." sentence.
+5. **RuboCop runs with Shopify's rules.** RuboCop is Ruby's style checker, and `rubocop-shopify` is Shopify's set of rules for it. The settings file was named `rubocop.yml`, without the leading dot, so RuboCop never found it. Renamed to `.rubocop.yml`, plain `bundle exec rubocop` now uses Shopify's rules and reports no problems in 57 files. The one issue it had found (`def self.even`) now sits inside `class << self`, which is Ruby's way of writing several class-level methods together.
+6. **The npm lockfile is committed.** `package-lock.json` records the exact version of every frontend package. The template's `.gitignore` left it out, so a fresh clone of the public repo would install whatever versions were newest. That's the same problem that broke the Ruby side on day one, when `Gemfile.lock` was ignored. It's committed now.
+
+The smoke test gained three checks: the "Not found" page's words, the friendly fetch message, and the Polaris wrapper giving Polaris its English (Pagination's "Next" label comes from those translations). Each check was proved by breaking the code on purpose and watching it fail. A first try used a Banner's "Dismiss notification" label, but that turned out to be written straight into Polaris rather than translated, so it would have passed either way.
+
+`bundle exec rubocop` is now one of the checks before every merge into `main`.

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { AppProvider } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
-import { getPolarisTranslations } from "../../utils/i18nUtils";
+import en from "@shopify/polaris/locales/en.json";
 
 function AppBridgeLink({ url, children, external, ...rest }) {
   const handleClick = useCallback(() => window.open(url), [url]);
@@ -40,14 +40,12 @@ function AppBridgeLink({ url, children, external, ...rest }) {
  * }
  * ```
  *
- * PolarisProvider also passes translations to Polaris.
+ * PolarisProvider also gives Polaris its English text (the app is English only).
  *
  */
 export function PolarisProvider({ children }) {
-  const translations = getPolarisTranslations();
-
   return (
-    <AppProvider i18n={translations} linkComponent={AppBridgeLink}>
+    <AppProvider i18n={en} linkComponent={AppBridgeLink}>
       {children}
     </AppProvider>
   );
