@@ -11,10 +11,12 @@ class SeedScenarioTest < ActiveSupport::TestCase
     assert_equal({ "A" => 94, "B" => 84, "C" => 69, "D" => 54, "E" => 16 }, totals(orders).slice("A", "B", "C", "D", "E"))
   end
 
-  test "one order at noon on each of the 29 days before today, 8 older ones inside 8 weeks" do
-    assert_equal ((TODAY - 29)..(TODAY - 1)).to_a, recent(orders).map { _1[:processed_at].to_date }
-    assert_equal 37, orders.size
-    assert(orders.all? { _1[:processed_at].to_date >= TODAY - (SalesHistory::DAYS - 1) && _1[:processed_at].hour == 12 })
+  test "one order on each of the 30 days in the window, 8 older ones inside 8 weeks" do
+    assert_equal ((TODAY - 29)..TODAY).to_a, recent(orders).map { _1[:processed_at].to_date }
+    assert_equal 38, orders.size
+    assert(orders.all? { _1[:processed_at].to_date >= TODAY - (SalesHistory::DAYS - 1) })
+    assert(orders[0..-2].all? { _1[:processed_at].hour == 12 })
+    assert_equal TODAY.in_time_zone(ZONE), orders.last[:processed_at] # today's is at midnight, never in the future
   end
 
   test "Cold Brew's chart climbs week by week" do
@@ -22,8 +24,9 @@ class SeedScenarioTest < ActiveSupport::TestCase
       order[:lines].each { |l| days[order[:processed_at].to_date] += l[:quantity] if l[:key] == "B" }
     end
     ranges = SalesHistory.call(daily_units: daily, today: TODAY)
-    assert_equal [19, 60, 84], ranges.map { |r| r[:points].sum { _1[:units] } }
-    assert_equal [6, 6, 6, 8, 9, 13, 17, 19], ranges.last[:points].map { _1[:units] }
+    assert_equal [20, 60, 84], ranges.map { |r| r[:points].sum { _1[:units] } }
+    assert_equal [6, 6, 6, 8, 9, 13, 16, 20], ranges.last[:points].map { _1[:units] }
+    assert_equal 3, ranges.first[:points].last[:units] # today sells too, so the line doesn't dive to 0
   end
 
   test "every product has a unique key and a category" do

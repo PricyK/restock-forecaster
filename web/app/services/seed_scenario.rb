@@ -21,8 +21,8 @@ module SeedScenario
     { key: "M", title: "Milk Frother", type: "Equipment", inventory: 8, price: "29.00" },
   ].freeze
 
-  # Spreads a 29-day total as evenly as whole units allow (neighbouring days differ by at most 1).
-  def self.even(total) = Array.new(29) { |i| ((i + 1) * total / 29) - (i * total / 29) }
+  # Spreads a 30-day total as evenly as whole units allow (neighbouring days differ by at most 1).
+  def self.even(total) = Array.new(30) { |i| ((i + 1) * total / 30) - (i * total / 30) }
 
   module_function
 
@@ -30,13 +30,13 @@ module SeedScenario
     PRODUCTS
   end
 
-  # Units sold per day for the 29 days before today, oldest first. Their totals set the forecast:
+  # Units sold per day for the 30 days of the forecast window (29 days ago to today), oldest first. Their totals set the forecast:
   # A climbs then sells out, B climbs, C has a weekly hump, D is flat, the extras sell evenly. E and M sell none.
   DAILY = {
-    "A" => [1, 1, 2, 1, 2, 2, 2, 2, 3, 2, 2, 3, 3, 2, 3, 3, 3, 4, 3, 3, 4, 4, 3, 4, 0, 0, 0, 0, 0],
-    "B" => [1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 3, 3, 3, 3, 3, 4, 3],
-    "C" => [1, 1, 2, 3, 2, 1, 1] * 4 + [1],
-    "D" => [1] * 28 + [2],
+    "A" => [1, 1, 2, 1, 2, 2, 2, 2, 3, 2, 2, 3, 3, 2, 3, 3, 3, 4, 3, 3, 4, 4, 3, 4, 0, 0, 0, 0, 0, 0],
+    "B" => [1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 2, 3, 3, 3, 3, 3, 3],
+    "C" => [0, 1] + [1, 1, 2, 3, 2, 1, 1] * 4,
+    "D" => [1] * 30,
     "F" => even(24), "G" => even(30), "H" => even(60), "I" => even(30), "J" => even(45), "K" => even(30), "L" => even(15),
   }.freeze
 
@@ -52,13 +52,17 @@ module SeedScenario
     { key: "J", quantity: 3 }, { key: "K", quantity: 2 }, { key: "L", quantity: 1 }, { key: "M", quantity: 1 },
   ].freeze
 
-  # Every order is at noon shop time, so which day it lands on never depends on when the seed runs.
+  # Orders are at noon shop time, so which day they land on never depends on when the seed runs.
+  # Today's is at midnight instead, so it is never in the future.
   def orders(today:, zone:)
-    noon = ->(days_ago) { (today - days_ago).in_time_zone(zone).change(hour: 12) } # change, not + 12.hours: DST days are 23 or 25 hours
-    older = OLDER_DAYS_AGO.map { |days_ago| { processed_at: noon.call(days_ago), lines: OLDER_LINES } }
-    recent = 29.times.map do |i|
+    at = lambda do |days_ago|
+      day = (today - days_ago).in_time_zone(zone)
+      days_ago.zero? ? day : day.change(hour: 12) # change, not + 12.hours: DST days are 23 or 25 hours
+    end
+    older = OLDER_DAYS_AGO.map { |days_ago| { processed_at: at.call(days_ago), lines: OLDER_LINES } }
+    recent = 30.times.map do |i|
       lines = DAILY.filter_map { |key, units| { key: key, quantity: units[i] } if units[i].positive? }
-      { processed_at: noon.call(29 - i), lines: lines }
+      { processed_at: at.call(29 - i), lines: lines }
     end
     older + recent
   end

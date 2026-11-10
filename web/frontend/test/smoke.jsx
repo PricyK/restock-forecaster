@@ -83,6 +83,10 @@ const chart = renderToStaticMarkup(
   </AppProvider>,
 );
 assert.ok(text(chart).includes("21 sold in the last 7 days"));
+// The last point is today (still counting): its segment is dashed and its tooltip says "so far".
+assert.equal(count(chart, "stroke-dasharray"), 1);
+assert.ok(chart.includes("<title>Nov 5: 6 sold so far</title>"));
+assert.ok(chart.includes("<title>Nov 4: 5 sold</title>"));
 assert.ok(
   chart.includes(
     'aria-label="Units sold per day, Oct 30 to Nov 5: 21 in total."',

@@ -33,6 +33,7 @@ export function SalesChart({ range }) {
   if (unit === "week") end.setUTCDate(end.getUTCDate() + 6); // a week's point is dated by its first day
   const last = shortDate(end);
   const labelled = [0, Math.floor((points.length - 1) / 2), points.length - 1];
+  const coords = points.map((p, i) => `${x(i)},${y(p.units)}`);
 
   return (
     <>
@@ -75,14 +76,19 @@ export function SalesChart({ range }) {
             {shortDate(points[i].date)}
           </text>
         ))}
-        <polyline
-          points={points.map((p, i) => `${x(i)},${y(p.units)}`).join(" ")}
-          fill="none"
-          stroke="var(--p-interactive)"
-          strokeWidth={2}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
+        {/* The last point is today, or the week that includes today, so it is still counting: its segment is dashed. */}
+        {[coords.slice(0, -1), coords.slice(-2)].map((segment, i) => (
+          <polyline
+            key={i}
+            points={segment.join(" ")}
+            fill="none"
+            stroke="var(--p-interactive)"
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            strokeDasharray={i === 1 ? "4 4" : undefined}
+          />
+        ))}
         {points.map((p, i) => (
           <g key={p.date}>
             {/* Dots on short ranges only; 30 dots would crowd the line. The last point always gets one. */}
@@ -102,7 +108,7 @@ export function SalesChart({ range }) {
               height={PLOT_H}
               fill="transparent"
             >
-              <title>{`${shortDate(p.date)}: ${p.units} sold`}</title>
+              <title>{`${shortDate(p.date)}: ${p.units} sold${i === points.length - 1 ? " so far" : ""}`}</title>
             </rect>
           </g>
         ))}

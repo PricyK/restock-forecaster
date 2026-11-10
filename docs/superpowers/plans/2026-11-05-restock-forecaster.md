@@ -546,10 +546,10 @@ end
   - Verify from `web/frontend`: `npm run build` → builds, and `npx prettier --check pages components utils` → clean. Commit: `git commit -m "feat: add sales history window"`.
 
 - [ ] **Step 14: Manual check (Muhammad).**
-  - Claude first re-seeds: `env $(shopify app env show | grep =) bin/rails restock:seed SHOP=ridgeline-coffee-co-3j14nuup.myshopify.com`. That's 37 orders, about 8 minutes (after the 2026-11-05 feedback changes; see the ledger).
+  - Claude first re-seeds: `env $(shopify app env show | grep =) bin/rails restock:seed SHOP=ridgeline-coffee-co-3j14nuup.myshopify.com`. That's 38 orders, about 8 minutes (after the 2026-11-05 feedback changes; see the ledger).
   - Muhammad then opens the app with `shopify app dev` and checks:
     - The table still matches the spec's seed table.
-    - Cold Brew Can's badge opens a "Cold Brew Can" window. Under the chart its tabs read "19 sold in the last 7 days", "60 … 30 days" and "84 … 8 weeks", and the 30-day and 8-week lines climb.
+    - Cold Brew Can's badge opens a "Cold Brew Can" window. Under the chart its tabs read "20 sold in the last 7 days", "60 … 30 days" and "84 … 8 weeks", and the 30-day and 8-week lines climb.
     - Pour-Over Kettle's tabs read 0, 0 and 16 sold, and its 8-week line ends at zero.
     - Above the table, three equal boxes read Out of stock 2, Critical 3, Warning 3 (13 seed products since the 2026-11-05 feedback).
     - The table's columns are Product, Category, SKU, Stock, Risk, and the categories match the spec's seed table.
@@ -611,8 +611,8 @@ Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 **Files:**
 - Create: `docs/testing.md` (checklist with results and date)
 
-- [ ] **Step 1: Fresh install.** Uninstall and reinstall the app on the dev store; run `restock:seed`. Expected: table matches the spec's seed table, and Cold Brew's sales window tabs read 19, 60 and 84 sold.
-- [ ] **Step 2: Live sale.** In admin, create an order for 3 × "Cold Brew Can" and mark it paid. Refresh. Expected: stock 3, still Critical (about 1 day left: 63 sold ÷ 30 = 2.1 a day); its sales window shows "22 sold in the last 7 days".
+- [ ] **Step 1: Fresh install.** Uninstall and reinstall the app on the dev store; run `restock:seed`. Expected: table matches the spec's seed table, and Cold Brew's sales window tabs read 20, 60 and 84 sold.
+- [ ] **Step 2: Live sale.** In admin, create an order for 3 × "Cold Brew Can" and mark it paid. Refresh. Expected: stock 3, still Critical (about 1 day left: 63 sold ÷ 30 = 2.1 a day); its sales window shows "23 sold in the last 7 days".
 - [ ] **Step 3: Restock.** Set "Dark Roast Beans 340g" stock to 100. Refresh. Expected: risk changes from warning to ok.
 - [ ] **Step 4: Empty state.** On a second dev store with no products, install and open. Expected: "No products yet".
 - [ ] **Step 5: Error state.** Temporarily make the endpoint raise (or stop the backend). Expected: error banner, no crash; then revert.

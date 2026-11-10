@@ -76,7 +76,7 @@ namespace :restock do
         begin
           gql.call(order_create, { order: input, options: { inventoryBehaviour: "BYPASS", sendReceipt: false } })
         rescue RuntimeError => e
-          # shortcut: fixed 60 s wait, 3 tries, not exponential backoff; fine for 37 orders.
+          # shortcut: fixed 60 s wait, 3 tries, not exponential backoff; fine for 38 orders.
           raise unless e.message.match?(/throttl|too many|limit/i) && (attempts += 1) < 3
 
           puts "Rate limited, waiting 60 s..."
