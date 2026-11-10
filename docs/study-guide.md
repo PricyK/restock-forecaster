@@ -124,13 +124,15 @@ The demo has to show every risk level every time, so the store is filled with a 
 
 ### The scenario
 
+*This describes the first version of the seed. It was rebuilt in Task 7 (13 products, one order a day): see "The seed: one order a day" there. The ideas below still apply.*
+
 `SeedScenario` is a **module**: a named box of constants and functions, with no objects to create. `module_function` lets you call `SeedScenario.orders(now: ...)` directly.
 
 | Key | Product | Stock | Sold in 10 orders | Forecast |
 |---|---|---|---|---|
-| A | Oat Milk 1L | 0 | 10 | Out of stock |
+| A | Oat Milk (1L) | 0 | 10 | Out of stock |
 | B | Cold Brew Can | 6 | 60 (2/day) | Critical, 3 days |
-| C | Dark Roast Beans 340g | 20 | 45 (1.5/day) | Warning, 13 days |
+| C | Dark Roast Beans (340g) | 20 | 45 (1.5/day) | Warning, 13 days |
 | D | Ceramic Mug | 100 | 30 (1/day) | OK, 100 days |
 | E | Pour-Over Kettle | 25 | 0 | No recent sales |
 

@@ -5,19 +5,19 @@ module SeedScenario
   TAG = "restock-seed"
 
   PRODUCTS = [
-    { key: "A", title: "Oat Milk 1L", type: "Milk", inventory: 0, price: "4.99" },
+    { key: "A", title: "Oat Milk (1L)", type: "Milk", inventory: 0, price: "4.99" },
     { key: "B", title: "Cold Brew Can", type: "Coffee", inventory: 6, price: "3.50" },
-    { key: "C", title: "Dark Roast Beans 340g", type: "Coffee", inventory: 20, price: "16.00" },
+    { key: "C", title: "Dark Roast Beans (340g)", type: "Coffee", inventory: 20, price: "16.00" },
     { key: "D", title: "Ceramic Mug", type: "Equipment", inventory: 100, price: "12.00" },
     { key: "E", title: "Pour-Over Kettle", type: "Equipment", inventory: 25, price: "45.00" },
     # Extra products so each risk level has two or three rows in the demo.
-    { key: "F", title: "Almond Milk 1L", type: "Milk", inventory: 0, price: "5.49" },
-    { key: "G", title: "Espresso Beans 1kg", type: "Coffee", inventory: 5, price: "32.00" },
-    { key: "H", title: "Paper Filters 100 Pack", type: "Equipment", inventory: 12, price: "6.00" },
-    { key: "I", title: "Earl Grey Tea 20 Bags", type: "Tea", inventory: 10, price: "7.50" },
-    { key: "J", title: "Barista Oat Milk 1L", type: "Milk", inventory: 18, price: "5.99" },
+    { key: "F", title: "Almond Milk (1L)", type: "Milk", inventory: 0, price: "5.49" },
+    { key: "G", title: "Espresso Beans (1kg)", type: "Coffee", inventory: 5, price: "32.00" },
+    { key: "H", title: "Paper Filters (100 Pack)", type: "Equipment", inventory: 12, price: "6.00" },
+    { key: "I", title: "Earl Grey Tea (20 Bags)", type: "Tea", inventory: 10, price: "7.50" },
+    { key: "J", title: "Barista Oat Milk (1L)", type: "Milk", inventory: 18, price: "5.99" },
     { key: "K", title: "Travel Tumbler", type: "Equipment", inventory: 40, price: "24.00" },
-    { key: "L", title: "Decaf Beans 340g", type: "Coffee", inventory: 30, price: "16.50" },
+    { key: "L", title: "Decaf Beans (340g)", type: "Coffee", inventory: 30, price: "16.50" },
     { key: "M", title: "Milk Frother", type: "Equipment", inventory: 8, price: "29.00" },
   ].freeze
 
