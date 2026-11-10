@@ -19,6 +19,8 @@
 
     <meta name="shopify-api-key" content="%VITE_SHOPIFY_API_KEY%" />
     <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+    <!-- Apply saved dark mode before the first paint, so a reload doesn't flash a light screen. Storage may be blocked. -->
+    <script>try { if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark"); } catch {}</script>
     <style>
       /* Polaris's UnstyledButton keeps the browser's button look (grey box in Safari); strip it so the content is the button. */
       .badge-button, .summary-button { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; }

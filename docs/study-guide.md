@@ -458,3 +458,29 @@ It also caught a real styling bug on its first run. Polaris's `UnstyledButton` m
 ### Tests
 
 46 Ruby runs in total, plus the smoke test. New: 1 for a blank product type; New: 4 for `SalesHistory`; 1 seed test pinning Cold Brew's chart; 3 for `daily_units` (local day, cancelled orders, one time-zone lookup); and 4 for the endpoint (JSON shape, 8-week window for the requested variant, 400 without an id, 502 when Shopify fails).
+
+## Task 8: Dark mode
+
+A **Dark mode** button sits next to Refresh. It reads **Light mode** while dark mode is on.
+
+### How it darkens the page with three lines of CSS
+
+Polaris 10 has no dark theme, so instead of picking dozens of dark colours, the app flips the colours it already has (`web/frontend/index.html`):
+
+- `html.dark { filter: invert(1) hue-rotate(180deg); }`. `invert(1)` turns white into black and light grey into dark grey, but it also turns red into cyan. `hue-rotate(180deg)` spins the colour wheel halfway back, so red is red again and green is green, while light and dark stay swapped. Browser extensions such as Dark Reader use the same trick.
+- `html.dark img, html.dark .Polaris-Backdrop { … same filter … }` flips images and the window's grey backdrop a second time. Two flips cancel out, so they look normal.
+- The line carries a `shortcut:` comment: shadows turn into faint light edges and colours shift a little. The upgrade is a hand-picked set of Polaris colour variables.
+
+Because lightness flips, the strong red "Out of stock" badge becomes a bright salmon in dark mode, and the pale "Critical" one becomes a deep red. They still look different from each other.
+
+### Remembering the choice
+
+- `HomePage` keeps `dark` in `useState`. Its starting value comes from `localStorage` (a small key-value store the browser keeps for each site), under the key `"theme"`.
+- `useEffect` runs after every change of `dark`. It adds or removes the `dark` class on `<html>` (`document.documentElement`) and saves the choice.
+- Reading or writing `localStorage` can throw in Safari when all cookies are blocked, so both are wrapped in `try … catch`. With storage blocked, the toggle still works for the visit; the page just doesn't remember it.
+- **No light flash on reload.** React starts only after the JavaScript has loaded. Until then the page would show light, and `useEffect` only runs after the first drawing. So a tiny script at the top of `index.html` reads the same key and adds the class before anything is drawn.
+- The saved choice belongs to the app's web address. `shopify app dev` gives the app a new address each run, so the choice resets then. A hosted app would keep it.
+
+### Checks
+
+The smoke test checks that the toggle is on the page. The colour flip was first tried on a sample page rendered with WebKit (Safari's engine), to confirm that the page background darkens too, not just the cards.
