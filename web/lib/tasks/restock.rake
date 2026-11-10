@@ -39,7 +39,7 @@ namespace :restock do
         body["data"]
       end
 
-      store = gql.call("{ shop { currencyCode plan { partnerDevelopment } } locations(first: 1) { nodes { id } } }")
+      store = gql.call("{ shop { currencyCode ianaTimezone plan { partnerDevelopment } } locations(first: 1) { nodes { id } } }")
       abort("#{domain} is not a development store; refusing to create fake orders.") unless store.dig("shop", "plan", "partnerDevelopment")
       currency = store.dig("shop", "currencyCode")
       location_id = store.dig("locations", "nodes", 0, "id")
@@ -50,7 +50,7 @@ namespace :restock do
 
       variant_ids = SeedScenario.products.to_h do |p|
         data = gql.call(product_set, { input: {
-          title: p[:title], tags: [SeedScenario::TAG], status: "ACTIVE",
+          title: p[:title], productType: p[:type], tags: [SeedScenario::TAG], status: "ACTIVE",
           productOptions: [{ name: "Title", values: [{ name: "Default Title" }] }],
           variants: [{
             optionValues: [{ optionName: "Title", name: "Default Title" }],
@@ -63,7 +63,8 @@ namespace :restock do
       end
 
       prices = SeedScenario.products.to_h { [_1[:key], BigDecimal(_1[:price])] }
-      orders = SeedScenario.orders(now: Time.current)
+      zone = store.dig("shop", "ianaTimezone")
+      orders = SeedScenario.orders(today: Time.current.in_time_zone(zone).to_date, zone: zone)
       orders.each_with_index do |order, i|
         total = order[:lines].sum { |l| prices[l[:key]] * l[:quantity] }
         input = {
@@ -75,7 +76,7 @@ namespace :restock do
         begin
           gql.call(order_create, { order: input, options: { inventoryBehaviour: "BYPASS", sendReceipt: false } })
         rescue RuntimeError => e
-          # shortcut: fixed 60 s wait, 3 tries, not exponential backoff; fine for 10 orders.
+          # shortcut: fixed 60 s wait, 3 tries, not exponential backoff; fine for 38 orders.
           raise unless e.message.match?(/throttl|too many|limit/i) && (attempts += 1) < 3
 
           puts "Rate limited, waiting 60 s..."

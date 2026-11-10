@@ -21,12 +21,13 @@ Success means an interviewer can watch a 1 to 2 minute demo, open the repo, read
 ## 2. Goals
 
 1. An embedded app that opens inside the Shopify admin of a development store.
-2. One page: an "at-risk products" table showing, per variant, stock on hand, daily sales rate, days of stock left, projected run-out date, and a risk badge.
+2. One page: an "at-risk products" table showing, per variant, its category, SKU, stock on hand, and a risk badge. (Changed 2026-11-05 at Muhammad's request: the sold/day, run-out date and days-left columns were removed as clutter, and a Category column was added. The forecast still computes all three, and the risk badge is based on days left.)
 3. Data comes live from the Shopify GraphQL Admin API each time the page loads or the user presses Refresh.
 4. A repeatable seed script that fills a development store with products and backdated orders forming a known scenario, so the demo always shows a mix of risk levels.
 5. Automated tests for the forecasting logic and the API endpoint.
 6. Documentation: README, architecture notes, a demo video, and a GIF in the README.
 7. Clicking a row's risk badge opens a small window with that variant's units sold over the last 7 days, 30 days and 8 weeks, as a line chart (added 2026-11-05 at Muhammad's request; see "Sales history window").
+8. A Dark mode / Light mode button that darkens the app's panel (added 2026-11-05 at Muhammad's request; see "Dark mode").
 
 ## 3. Non-goals (agreed cuts)
 
@@ -66,6 +67,7 @@ Claude writes the code. Muhammad studies it afterwards. So:
 
 - **Stock:** for each product variant, total `inventoryQuantity` (summed across locations).
 - **Sales:** units sold per variant in the last 30 days, from orders' line items. "Last 30 days" means today and the 29 days before it, so the table and the sales history window count the same days.
+- **Category:** the product's Shopify product type (`productType`), shown as "—" when the merchant set none.
 - **Access scopes:** `read_products`, `read_orders`, `read_inventory` for the app; `write_products`, `write_orders`, `write_inventory` only as needed by the seed script.
 
 ### Forecast rules
@@ -92,16 +94,18 @@ The forecasting logic lives in one plain Ruby class with no Shopify dependency, 
 3. The Rails controller queries the GraphQL Admin API for variants with inventory and for orders from the last 30 days, passes the results to the forecast class, and returns JSON.
 4. The page renders a Polaris table with risk badges and a Refresh button, plus loading, empty, and error states.
 
-The table shows every variant, not only at-risk ones, so the sort order puts the at-risk rows on top. The empty state means "this store has no products". An optional summary line (for example "2 critical, 1 warning") sits above the table.
+The table shows every variant, not only at-risk ones, so the sort order puts the at-risk rows on top. The empty state means "this store has no products". Above the table, three equal boxes show how many rows are out of stock, critical and warning, in that order, each under the same badge the table uses (changed 2026-11-05 at Muhammad's request; it replaced a one-line summary). "Out of stock" uses Polaris's strong red so it stands apart from "Critical". Hovering a badge deepens its colour. Clicking a box shows only that risk's rows, and clicking it again shows all. A box with a count of 0 can't be clicked. If a refresh drops the selected risk's count to 0, the filter clears, so the table never shows empty.
 
 ### Sales history window
 
 What the merchant sees:
 
-- Each risk badge is a button, labelled for screen readers as "Sales history for <product>".
-- Clicking it opens a small Polaris `Modal` titled with the product (and variant) name. The modal's X and the Escape key close it.
-- A line at the top shows all three totals, for example "Sold: 12 in 7 days · 60 in 30 days · 78 in 8 weeks".
+- Each risk badge is a button, labelled for screen readers with its risk and product, for example "Critical: sales history for Cold Brew Can" (the label replaces the badge text, so it must keep the risk word).
+- Clicking it opens a small Polaris `Modal` titled with the product (and variant) name. The modal's X and the Escape key close it. An expand / shrink icon button beside the X (two corner triangles, like the macOS full-screen button) switches between Polaris's small and large sizes (added 2026-11-05 at Muhammad's request); the large size redraws the chart in a wider drawing area, so labels keep their size.
+- The window's first line gives the forecast's days left in words: "About 3 days of stock left.", "Less than a day of stock left.", "Out of stock now.", or "No sales in the last 30 days, so no run-out estimate." (added 2026-11-05, since the table has no Days left column).
+- Under the chart, the selected tab's total, for example "19 sold in the last 7 days" (changed 2026-11-05 at Muhammad's request; it replaced a line listing all three totals).
 - Three tabs, **7 days**, **30 days** and **8 weeks**, switch a line chart: dates on the x-axis, units sold on the y-axis. The 7- and 30-day tabs have one point per day. The 8-week tab has one point per week, and each week is a full 7 days ending today.
+- The chart's last point is today (or the week that includes today), which is still counting, so its segment is dashed and its tooltip says "so far".
 - The chart is a small SVG drawing written in the app, with no chart library. It has `role="img"` and a one-sentence description (range and total) for screen readers.
 - While loading, the modal shows a placeholder. On failure it shows the error message and a Retry button.
 
@@ -120,9 +124,15 @@ How it works:
   ] }
   ```
 
-  The 7-day range has 7 points and the 30-day range has 30. The 8-week range has 8 points, and each point's `date` is the first day of its week. The frontend adds up each range for the totals line.
+  The 7-day range has 7 points and the 30-day range has 30. The 8-week range has 8 points, and each point's `date` is the first day of its week. The frontend adds up the selected range for the line under the chart.
 - Each click fetches every order from the last 8 weeks and keeps only that variant's lines. The code marks this as a `shortcut:` comment (fine for a development store; filter or cache if order volume grows).
 - The longest range is 8 weeks, not a year, because `read_orders` only returns the last 60 days. A year would need the `read_all_orders` scope, which needs Shopify's approval for Partner apps. Muhammad chose not to request it (2026-11-05).
+
+### Dark mode
+
+- A "Dark mode" button next to Refresh ("Light mode" while on) puts a `dark` class on the page. CSS inverts the colours and rotates hues back (`filter: invert(1) hue-rotate(180deg)`), so badges keep their colours. Images and the modal backdrop are flipped back.
+- The choice is saved in the browser's `localStorage`. It resets when `shopify app dev` gets a new tunnel address.
+- Limits: only the app's panel goes dark (the admin around it does not change), shadows become faint light edges, and colours shift slightly. The upgrade, if it looks off, is a hand-picked set of Polaris colour variables.
 
 ### Seed scenario
 
@@ -136,12 +146,27 @@ A script, run against the development store, creates a small product set and bac
 | D | 100 | 30 (1/day) | OK, 100 days left |
 | E | 25 | 0 | No recent sales |
 
-The same table doubles as the expected values for a manual check.
+Categories (product types): A Milk, B and C Coffee, D and E Equipment.
+
+Extra products, so each risk level has two or three rows in the demo (added 2026-11-05 at Muhammad's request). They sell evenly every day:
+
+| Product | Category | Stock | Units sold in last 30 days | Expected result |
+|---|---|---|---|---|
+| F Almond Milk 1L | Milk | 0 | 24 | Out of stock |
+| G Espresso Beans 1kg | Coffee | 5 | 30 | Critical, 5 days left |
+| H Paper Filters 100 Pack | Equipment | 12 | 60 | Critical, 6 days left |
+| I Earl Grey Tea 20 Bags | Tea | 10 | 30 | Warning, 10 days left |
+| J Barista Oat Milk 1L | Milk | 18 | 45 | Warning, 12 days left |
+| K Travel Tumbler | Equipment | 40 | 30 | OK, 40 days left |
+| L Decaf Beans 340g | Coffee | 30 | 15 | OK, 60 days left |
+| M Milk Frother | Equipment | 8 | 0 (sold only in the older orders) | No recent sales |
+
+The summary boxes read Out of stock 2, Critical 3, Warning 3. The same tables double as the expected values for a manual check.
 
 Seed details:
 
-- Sales for each variant are spread evenly over the last 30 days. Backdated sales age out of the window, so the expected values only hold on the day of seeding. Re-seed on testing and recording days.
-- For the 8-week chart, the seed also creates 6 older orders, 33 to 54 days back, with A 1, B 3, C 3, D 3 and E 2 units each. They fall outside the 30-day window, so the table above does not change. Cold Brew (B) sells half as much per order back then, so its chart rises. Pour-Over Kettle (E) only sells in these older orders, so its "No recent sales" chart shows sales that stopped. Expected 8-week totals: A 16, B 78, C 63, D 48, E 12. The seed takes about a minute longer.
+- One order on each of the 30 days in the window: at noon shop time, and today's at midnight so it is never in the future. Each product's units per day are fixed in `SeedScenario::DAILY`: Cold Brew climbs, Dark Roast has a weekly hump, the mug is flat, and Oat Milk climbs then drops to zero when it sold out. Their totals give the table above. Fixed times mean the day each sale lands on never depends on when the seed runs, and selling today keeps the charts from ending in a drop to 0. Backdated sales age out of the window, so the expected values only hold on the day of seeding. Re-seed on testing and recording days.
+- For the 8-week chart, the seed also creates 8 older orders, two a week from 54 to 30 days back, with A 4, B 3, C 3, D 3 and E 2 units each. They fall outside the 30-day window, so the table above does not change. Pour-Over Kettle (E) only sells in these older orders, so its "No recent sales" chart shows sales that stopped. Expected totals for 7 days / 30 days / 8 weeks: Cold Brew 20 / 60 / 84 (weekly 6, 6, 6, 8, 9, 13, 16, 20), Pour-Over Kettle 0 / 0 / 16. The seed creates 38 orders and takes about 8 minutes.
 - Repeatable means: the seed first deletes the products it created before (identified by a product tag, for example `restock-seed`), then recreates them. Old seed orders stay in the store, but they point at deleted variants, so the forecast ignores them. No order cleanup needed.
 - Use quantities above 1 per order and throttle requests. Development stores rate-limit order creation (roughly 5 orders a minute; check the current limit).
 - `orderCreate` accepts `processedAt`, but `createdAt` is the seed time. The forecast's order query must filter on `processed_at`, not `created_at`.
@@ -185,9 +210,10 @@ Seed details:
 - 30-day sales window, and 7 and 14 day risk thresholds.
 - Per-variant results, with stock summed across all locations.
 - Forecasts computed on request; no database tables beyond the template's session storage.
-- No frontend (React) automated tests; the frontend is verified manually and in the demo.
+- Frontend tests: one smoke test (`npm run smoke` in `web/frontend`) renders the page and the chart outside the browser and checks the output. It was added 2026-11-05, after a crash while drawing left a blank page that the build could not see. Everything else in the frontend is checked by hand and in the demo.
 - The public GitHub repo for this project gets linked from the resume, even though the resume currently omits a personal GitHub profile.
 - The table shows all variants, sorted with at-risk ones on top.
 - The seed resets by deleting its own tagged products, and is re-run on testing and recording days.
 - The fallback stack above, if the template will not run.
-- Sales history: 8 full weeks as the longest range, rather than 60 days split into weeks. The chart is drawn in SVG with no library, so it has no hover tooltips. "Sales" means units sold. The 30-day window counts today and the 29 days before it.
+- A variant shows inside the Product column ("T-Shirt – Large") instead of its own column.
+- Sales history: 8 full weeks as the longest range, rather than 60 days split into weeks. The chart is drawn in SVG with no library; hovering over a date shows its value through the browser's built-in SVG tooltip (no custom tooltip). "Sales" means units sold. The 30-day window counts today and the 29 days before it.

@@ -4,13 +4,13 @@
 
 **Goal:** An embedded Shopify app that lists every product variant in a store with its sales rate, days of stock left, run-out date, and risk level, sorted so at-risk items come first.
 
-**Architecture:** Shopify's Ruby app template (Rails backend + React/Polaris frontend). One authenticated JSON endpoint fetches variants and the last 30 days of orders from the GraphQL Admin API, hands them to a pure-Ruby `Forecast` class, and returns rows. One React page renders them. A rake task seeds a development store with a fixed scenario. Nothing is stored except the template's sessions.
+**Architecture:** Shopify's Ruby app template (Rails backend + React/Polaris frontend). One authenticated JSON endpoint fetches variants and the last 30 days of orders from the GraphQL Admin API, hands them to a pure-Ruby `Forecast` class, and returns rows. One React page renders them; clicking a risk badge opens a window charting that variant's daily sales for the last 8 weeks, from a second endpoint. A rake task seeds a development store with a fixed scenario. Nothing is stored except the template's sessions.
 
 **Tech Stack:** Ruby, Rails, `shopify_app` gem, Shopify GraphQL Admin API, React, Polaris, App Bridge, Minitest, SQLite, Shopify CLI, macOS.
 
 **Spec:** `docs/superpowers/specs/2026-11-05-restock-forecaster-design.md`
 
-**Execution (chosen 2026-11-05):** Native, with `superpowers:executing-plans`, in one session on the MacBook. Status: no tasks started.
+**Execution (chosen 2026-11-05):** Native, with `superpowers:executing-plans`, in one session on the MacBook. Status: Tasks 1 to 6 complete (see the ledger); Tasks 7 and 8 added 2026-11-05.
 
 ## Global Constraints
 
@@ -25,12 +25,12 @@
 - Claude writes the code. Every task ends by appending a plain-English section to `docs/study-guide.md` and summarizing it in chat.
 - No claims in docs or resume that the code does not back up. No invented metrics.
 - **Ponytail plugin (Muhammad's request):**
-  - Write all code under `ponytail:ponytail` (full level): smallest complete change, `shortcut: <limit>, <when to upgrade>` comments on known limits.
+  - Write all code and designs under `ponytail:ponytail` at **ultra** level (Muhammad's request, 2026-11-05; was full): question any part of a request the need does not justify, then the smallest complete change, `shortcut: <limit>, <when to upgrade>` comments on known limits.
   - Run `ponytail:ponytail-review` on each task's commits before the task's Explain step. Fix real findings, or note why one was skipped in the study guide.
-  - Run `ponytail:ponytail-audit` on the whole repo in Task 7.
-  - Use `ponytail:ponytail-debt` output as the source of the README's known-limitations list in Task 8.
+  - Run `ponytail:ponytail-audit` on the whole repo in Task 9.
+  - Use `ponytail:ponytail-debt` output as the source of the README's known-limitations list in Task 10.
 - **GitHub (Muhammad's request):** the repo `PricyK/restock-forecaster` is created in Task 1, and every task ends with `git push` so progress shows in real time. Ask Muhammad public or private before creating it. Before every push, check `git status` and the diff for secrets: no `.env`, API secret, access tokens, or SQLite database files.
-- **Branches (Muhammad's request, 2026-11-05):** all work is committed on `dev` and pushed there after every task. `dev` merges into `main` only after the task's checks pass: full `bin/rails test` green, `ponytail:ponytail-review` findings fixed or noted, the secret check above, and, where the task has one, the manual check on the dev store. Merge with `git merge --no-ff dev` on `main`, then push `main`.
+- **Branches (Muhammad's request, 2026-11-05):** all work is committed on `dev` and pushed there after every task. `dev` merges into `main` only after the task's checks pass: full `bin/rails test` green, `npm run smoke` passing in `web/frontend` (added 2026-11-05), `ponytail:ponytail-review` findings fixed or noted, the secret check above, and, where the task has one, the manual check on the dev store. Merge with `git merge --no-ff dev` on `main`, then push `main`.
 - **Machine:** Muhammad's MacBook. Work happens in a clone of `PricyK/restock-forecaster` (created on 2026-11-05 with only these docs). All commands below run in Terminal from `web/` unless stated.
 
 ## Review Focus
@@ -40,6 +40,8 @@
 3. **Line items with no variant** (custom items, deleted products, old seed orders): skipped, no crash. Pinned by `test_skips_line_items_without_variant` in Task 4.
 4. **Variants that do not track inventory**: their stock number is meaningless, so they are left out of the table. Pinned by `test_skips_untracked_variants` in Task 4.
 5. **Single-variant products** show Shopify's placeholder `"Default Title"` as the variant name: show `nil` instead so the table reads cleanly. Pinned by `test_default_title_becomes_nil` in Task 4.
+6. **Sales late in the shop's evening** (already the next day in UTC): the chart counts them on the shop's date. Pinned by "daily units are counted per shop-local day" in Task 7.
+7. **Days with no sales**: shown as zero, so the line has no gaps. Pinned by "daily points end today and fill missing days with zero" in Task 7.
 
 ---
 
@@ -54,6 +56,8 @@
 | `web/app/controllers/forecasts_controller.rb` | `GET /api/forecast`. |
 | `web/config/routes.rb` | Add the route. |
 | `web/frontend/pages/index.jsx` | The at-risk table page (replaces the template home page). |
+| `web/app/services/sales_history.rb` | Pure grouping of one variant's daily sales into the 7-day, 30-day and 8-week ranges. |
+| `web/frontend/components/SalesHistoryModal.jsx`, `SalesChart.jsx`, `web/frontend/utils/fetchJson.js` | The sales history window, its SVG chart, and the shared fetch helper. |
 | `web/test/services/*_test.rb`, `web/test/controllers/forecasts_controller_test.rb` | Tests. |
 | `shopify.app.toml` | Scopes. |
 | `README.md`, `docs/architecture.md`, `docs/study-guide.md`, `docs/demo/` | Docs and demo. |
@@ -363,13 +367,253 @@ end
 
 ---
 
-### Task 7: Dev testing on the store
+### Task 7: Sales history window
+
+Spec: "Sales history window", the seed bullet about the 6 older orders, and the 30-day definition under "Data".
+
+**Files:**
+- Create: `web/app/services/sales_history.rb`, `web/test/services/sales_history_test.rb`
+- Create: `web/frontend/utils/fetchJson.js`, `web/frontend/components/SalesChart.jsx`, `web/frontend/components/SalesHistoryModal.jsx`
+- Modify: `web/app/services/shopify_store_data.rb`, `web/test/services/shopify_store_data_test.rb`
+- Modify: `web/app/controllers/forecasts_controller.rb`, `web/config/routes.rb`, `web/test/controllers/forecasts_controller_test.rb`
+- Modify: `web/app/services/seed_scenario.rb`, `web/test/services/seed_scenario_test.rb`, `web/lib/tasks/restock.rake` (its throttle `shortcut:` comment says "10 orders"; make it 16)
+- Modify: `web/frontend/pages/index.jsx`, `web/frontend/components/index.js`
+
+**Interfaces:**
+- Consumes: `ShopifyStoreData` (Task 4), `ForecastsController` and its tests (Task 5), `Forecast::WINDOW_DAYS` (Task 2), the page (Task 6), `SeedScenario.orders(now:)` (Task 3).
+- Produces:
+  - `ShopifyStoreData#daily_units(variant_id, since:) -> Hash{Date => Integer}`: one variant's units per shop-local day of the order's `processedAt`. Cancelled orders and lines without a variant are skipped by one private method that `units_sold` also uses. The method looks up the time zone before it reads orders. `units_sold` never looks up the time zone, because its tests queue only order pages. The time zone is memoized (`@time_zone ||=`) and shared with `today`.
+  - `SalesHistory.call(daily_units:, today:) -> [{ label: String, points: [{ date: Date, units: Integer }] }]`, with `SalesHistory::DAYS = 56`:
+    - Labels and point counts: `"7 days"` 7, `"30 days"` `Forecast::WINDOW_DAYS`, `"8 weeks"` 8.
+    - Each weekly point is a 7-day sum, and its `date` is the first day of that week. The last week ends today.
+    - A missing day counts as 0, read with `fetch(date, 0)` so a plain Hash works.
+  - `GET /api/sales_history?variant_id=<gid>` → `200 { ranges: [...] }`, with dates as ISO strings. With no `variant_id` → 400, from `params.require`. When Shopify fails → the same 502 body as `/api/forecast`, through one `rescue_from ShopifyStoreData::Error, ShopifyAPI::Errors::HttpResponseError` on `ForecastsController`. The action reads `daily_units(variant_id, since: today - (SalesHistory::DAYS - 1))`.
+  - `/api/forecast` now counts sales `since: today - (Forecast::WINDOW_DAYS - 1)`, which is 30 days counting today.
+  - `fetchJson(url) -> Promise<body>` (in `web/frontend/utils/fetchJson.js`) throws `Error(body.error || FALLBACK_ERROR)` when the response is not OK. It replaces `fetchForecast`.
+  - `SalesChart({ points, description })` and `SalesHistoryModal({ row, onClose })`, where `row` is a forecast row or `null`.
+
+- [ ] **Step 1: Same 30 days for the table and the chart.** In `forecasts_controller_test.rb`, change "passes a 30 day window" to expect `since: Date.new(2026, 10, 12)`. Run `bin/rails test test/controllers/forecasts_controller_test.rb` → 1 failure (it gets Oct 11). Change the controller to `since: today - (Forecast::WINDOW_DAYS - 1)`. Run again → PASS.
+
+- [ ] **Step 2: Write the `SalesHistory` tests** in `web/test/services/sales_history_test.rb`, with `TODAY = Date.new(2026, 11, 10)` and the helper `def range(label, daily) = SalesHistory.call(daily_units: daily, today: TODAY).find { _1[:label] == label }[:points]`:
+
+```ruby
+test "has three ranges of 7, 30 and 8 points" do
+  ranges = SalesHistory.call(daily_units: {}, today: TODAY)
+  assert_equal ["7 days", "30 days", "8 weeks"], ranges.map { _1[:label] }
+  assert_equal [7, 30, 8], ranges.map { _1[:points].size }
+end
+
+test "daily points end today and fill missing days with zero" do
+  week = range("7 days", { TODAY => 4, TODAY - 2 => 1 })
+  assert_equal TODAY - 6, week.first[:date]
+  assert_equal [0, 0, 0, 0, 1, 0, 4], week.map { _1[:units] }
+end
+
+test "30 day range starts 29 days before today" do
+  assert_equal Date.new(2026, 10, 12), range("30 days", {}).first[:date]
+end
+
+test "weeks are 7 day totals and the last one ends today" do
+  weeks = range("8 weeks", { TODAY => 2, TODAY - 6 => 3, TODAY - 7 => 5, TODAY - 55 => 1, TODAY - 56 => 100 })
+  assert_equal({ date: TODAY - 6, units: 5 }, weeks.last)
+  assert_equal 5, weeks[-2][:units]
+  assert_equal({ date: TODAY - 55, units: 1 }, weeks.first)
+  assert_equal 11, weeks.sum { _1[:units] } # TODAY - 56 is outside the 8 weeks
+end
+```
+
+- [ ] **Step 3: Run them.** `bin/rails test test/services/sales_history_test.rb` → FAIL (`NameError: uninitialized constant SalesHistory`).
+- [ ] **Step 4: Implement `SalesHistory < ApplicationService`** in `web/app/services/sales_history.rb`, with no Shopify code (like `Forecast`). Run again → 4 PASS.
+
+- [ ] **Step 5: Write the `daily_units` tests** in `shopify_store_data_test.rb`. Give the `order` helper a `processed_at: "2026-11-05T15:00:00Z"` keyword that it puts under `"processedAt"`. Add `SHOP_NY = { "data" => { "shop" => { "ianaTimezone" => "America/New_York" } } }` and reuse it in the existing "today" test.
+
+```ruby
+test "daily units are counted per shop-local day" do
+  use SHOP_NY, orders_page([order([[V1, 2]], processed_at: "2026-11-06T02:00:00Z"), # 9 p.m. Nov 5 in New York
+                            order([[V1, 1], [V2, 7]])])
+  assert_equal({ Date.new(2026, 11, 5) => 3 }, data.daily_units(V1, since: SINCE))
+end
+
+test "daily units skip cancelled orders" do
+  use SHOP_NY, orders_page([order([[V1, 2]], cancelled_at: "2026-11-05T16:00:00Z")])
+  assert_equal({}, data.daily_units(V1, since: SINCE))
+end
+
+test "looks up the time zone once" do
+  use SHOP_NY, orders_page([])
+  store = data
+  store.today
+  store.daily_units(V1, since: SINCE)
+  assert_equal 1, client.calls.count { _1[:query].include?("ianaTimezone") }
+end
+```
+
+- [ ] **Step 6: Run them.** `bin/rails test test/services/shopify_store_data_test.rb` → the 3 new tests FAIL (`NoMethodError: daily_units`).
+- [ ] **Step 7: Implement** per the Interfaces block:
+  - Add `processedAt` to `ORDERS_QUERY`'s order nodes.
+  - Add the shared private method that returns the sold lines.
+  - Memoize the time zone.
+  - Give `daily_units` this comment: `# shortcut: reads every order since \`since\` to chart one variant, filter or cache if order volume grows.`
+
+  Run the file again → all PASS, the old tests included.
+
+- [ ] **Step 8: Write the endpoint tests** in `forecasts_controller_test.rb`. The setup's `@data` stub gains `daily_units: { Date.new(2026, 11, 10) => 6 }`.
+
+```ruby
+test "returns sales history" do
+  get "/api/sales_history", params: { variant_id: VARIANT[:id] }
+  assert_response :success
+  ranges = JSON.parse(response.body)["ranges"]
+  assert_equal ["7 days", "30 days", "8 weeks"], ranges.map { _1["label"] }
+  assert_equal({ "date" => "2026-11-10", "units" => 6 }, ranges.first["points"].last)
+end
+
+test "sales history reads 8 weeks for the requested variant" do
+  @data.expects(:daily_units).with(VARIANT[:id], since: Date.new(2026, 9, 16)).returns({})
+  get "/api/sales_history", params: { variant_id: VARIANT[:id] }
+  assert_response :success
+end
+
+test "sales history needs a variant_id" do
+  get "/api/sales_history"
+  assert_response :bad_request
+end
+
+test "sales history returns 502 when Shopify fails" do
+  @data.stubs(:daily_units).raises(ShopifyStoreData::Error, "Throttled")
+  get "/api/sales_history", params: { variant_id: VARIANT[:id] }
+  assert_response 502
+  assert_equal "Couldn't load data from Shopify. Try again.", JSON.parse(response.body)["error"]
+end
+```
+
+- [ ] **Step 9: Run them.** `bin/rails test test/controllers/forecasts_controller_test.rb` → the 4 new tests FAIL, because there is no route yet and the catch-all route answers instead.
+- [ ] **Step 10: Implement:**
+  - Add `get "/sales_history", to: "forecasts#sales_history"` inside the `scope path: :api` block.
+  - Add a `sales_history` action whose Shopify calls sit inside `with_token_refetch`.
+  - Add a private `store_data` that builds the client for both actions.
+  - Replace the `rescue` in `show` with `rescue_from ... with: :shopify_failed`.
+
+  Run the file again → all PASS, including the old 502 and 401-retry tests.
+
+- [ ] **Step 11: Seed the older orders.** In `seed_scenario_test.rb`:
+  - Add a helper `recent(orders)` that keeps orders whose `processed_at.to_date >= NOW.to_date - (Forecast::WINDOW_DAYS - 1)`.
+  - Add a `totals(orders)` helper, made from the existing group-and-sum code.
+  - Change the tests as below.
+  - "seeded stock and sales give the spec's forecast" now sums `recent(...)` only.
+
+```ruby
+test "orders total match the scenario" do
+  orders = SeedScenario.orders(now: NOW)
+  assert_equal({ "A" => 10, "B" => 60, "C" => 45, "D" => 30 }, totals(recent(orders)))
+  assert_equal({ "A" => 16, "B" => 78, "C" => 63, "D" => 48, "E" => 12 }, totals(orders))
+end
+
+test "10 orders in the 30 day window and 6 older ones inside 8 weeks" do # replaces "all orders fall inside the 30 day window"
+  orders = SeedScenario.orders(now: NOW)
+  assert_equal [10, 16], [recent(orders).size, orders.size]
+  assert(orders.all? { _1[:processed_at].to_date >= NOW.to_date - (SalesHistory::DAYS - 1) && _1[:processed_at] < NOW })
+end
+```
+
+  Run `bin/rails test test/services/seed_scenario_test.rb` → FAIL (the 8-week totals are missing). Then:
+  - Add 6 orders to `SeedScenario.orders`, at `now - (33.5 + 4 * j).days` for `j` = 0 to 5, with lines A 1, B 3, C 3, D 3, E 2.
+  - Fix its comments ("E" now sells only in the older orders).
+  - Change the rake comment to 16 orders.
+
+  Run again → PASS.
+
+- [ ] **Step 12: Full suite.** `bin/rails test` → 44 runs, 0 failures. Commit: `git commit -m "feat: add /api/sales_history endpoint"`.
+
+- [ ] **Step 13: Frontend.** Read the `dataviz` skill before writing the chart.
+  - `utils/fetchJson.js`: move `FALLBACK_ERROR`, the App Bridge comment, and the body of `fetchForecast` here as `export async function fetchJson(url)`. `index.jsx` uses `queryFn: () => fetchJson("/api/forecast")`.
+  - `components/SalesChart.jsx` is an inline SVG with no chart library:
+    - Attributes: `viewBox`, `width="100%"`, `role="img"`, `aria-label={description}`.
+    - One line through all the points.
+    - Y-axis labels at 0 and at the top value.
+    - X-axis labels at the first, middle and last dates ("Oct 30"), formatted in UTC (as `formatDate` in `index.jsx` did).
+    - Every colour is a Polaris CSS variable, so a dark theme only has to swap the variables: `var(--p-interactive)` for the line, `var(--p-text-subdued)` for the labels, `var(--p-border-subdued)` for the gridlines. No hex values.
+  - `components/SalesHistoryModal.jsx` is a Polaris `Modal`:
+    - Props: `small`, `open={Boolean(row)}`, and a title of the product title, plus " – <variant title>" when there is one.
+    - Data: `useQuery(["sales_history", row?.id], () => fetchJson(...), { enabled: Boolean(row), retry: false, refetchOnWindowFocus: false })`, with the variant id passed through `encodeURIComponent`.
+    - States: loading shows `SkeletonBodyText`. An error shows a critical `Banner` with the message and Retry.
+    - With data: a `Text` line "Sold: 12 in 7 days · 60 in 30 days · 78 in 8 weeks" (the sum of each range), Polaris `Tabs` with the three labels, and a `SalesChart` for the selected tab. Its description reads "Units sold per day, Oct 30 to Nov 5: 12 in total." and says "per week" on the 8-week tab.
+  - `components/index.js` exports both components.
+  - `index.jsx`:
+    - Wrap each badge in `UnstyledButton` with `accessibilityLabel={`${badge.label}: sales history for ${row.product_title}`}`. The label keeps the risk word, which `aria-label` would otherwise hide.
+    - Clicking the button calls an `onSelect(row)` prop on `ForecastTable`.
+    - `HomePage` keeps `selected` in `useState(null)` and renders `<SalesHistoryModal row={selected} onClose={() => setSelected(null)} />`.
+  - Verify from `web/frontend`: `npm run build` → builds, and `npx prettier --check pages components utils` → clean. Commit: `git commit -m "feat: add sales history window"`.
+
+- [ ] **Step 14: Manual check (Muhammad).**
+  - Claude first re-seeds: `env $(shopify app env show | grep =) bin/rails restock:seed SHOP=ridgeline-coffee-co-3j14nuup.myshopify.com`. That's 38 orders, about 8 minutes (after the 2026-11-05 feedback changes; see the ledger).
+  - Muhammad then opens the app with `shopify app dev` and checks:
+    - The table still matches the spec's seed table.
+    - Cold Brew Can's badge opens a "Cold Brew Can" window. Under the chart its tabs read "20 sold in the last 7 days", "60 … 30 days" and "84 … 8 weeks", and the 30-day and 8-week lines climb.
+    - Pour-Over Kettle's tabs read 0, 0 and 16 sold, and its 8-week line ends at zero.
+    - Above the table, three equal boxes read Out of stock 2, Critical 3, Warning 3 (13 seed products since the 2026-11-05 feedback).
+    - The table's columns are Product, Category, SKU, Stock, Risk, and the categories match the spec's seed table.
+    - Clicking a box shows only that risk's rows; clicking it again shows all of them.
+    - The expand / shrink icon beside the window's X switches between the small and large sizes; the chart's labels stay the same size.
+    - Each of the three tabs switches the chart.
+    - The X and the Escape key both close the window.
+    - The Tab key reaches a badge, and Enter opens it.
+  - These values hold on the seed day only.
+
+- [ ] **Step 15: Review and explain.**
+  - Run `ponytail:ponytail-review` on the task's commits.
+  - Add a study guide section covering:
+    - the second action and `rescue_from`
+    - `SalesHistory`
+    - the time-zone memo
+    - why 8 weeks (the 60-day order limit)
+    - how the SVG chart turns numbers into positions
+    - the modal and tabs
+    - `fetchJson`
+  - Commit, push `dev`, and merge per Global Constraints.
+
+---
+
+### Task 8: Dark mode toggle
+
+Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
+
+**Files:**
+- Modify: `web/frontend/index.html` (one `<style>` block), `web/frontend/pages/index.jsx`
+
+**Interfaces:**
+- Consumes: the page (Task 6) and the sales window (Task 7).
+- Produces: the class `dark` on `<html>` while dark mode is on, and the `localStorage` key `"theme"`, which holds `"dark"` or is absent.
+
+- [ ] **Step 1: CSS** in `index.html`:
+  - `html.dark { filter: invert(1) hue-rotate(180deg); }`.
+  - The same filter on `html.dark img, html.dark .Polaris-Backdrop`, which flips those back so they look normal.
+  - The comment `shortcut: inverts colours with a filter instead of a dark palette, replace with Polaris colour variables if colours look off`.
+- [ ] **Step 2: Toggle** in `index.jsx`:
+  - State: `dark` starts from `localStorage.getItem("theme") === "dark"`.
+  - An effect toggles `document.documentElement.classList` and saves the choice, or removes the key in light mode.
+  - The `Page` gets `secondaryActions` with one action: "Dark mode", or "Light mode" while dark mode is on.
+  - If the browser blocks storage, the toggle still works for that visit instead of crashing the page.
+- [ ] **Step 3: Verify** from `web/frontend`: `npm run build` → builds, and `npx prettier --check pages index.html` → clean. Commit: `git commit -m "feat: add dark mode toggle"`.
+- [ ] **Step 4: Manual check (Muhammad, Safari):**
+  - **Dark mode** turns the whole app panel dark, including the empty space below the table.
+  - The badges keep their colours (red, yellow, green, grey), and the text stays readable.
+  - The Cold Brew sales window is dark: its backdrop stays dark, it sits centred, and the chart line is visible.
+  - Reloading the page keeps dark mode. **Light mode** puts everything back.
+- [ ] **Step 5: Review and explain.**
+  - Run `ponytail:ponytail-review` on the task's commits.
+  - Add a study guide section covering CSS `filter` (`invert` plus `hue-rotate`), why images are flipped back, `localStorage`, and `useEffect`.
+  - Commit, push `dev`, and merge per Global Constraints.
+
+---
+
+### Task 9: Dev testing on the store
 
 **Files:**
 - Create: `docs/testing.md` (checklist with results and date)
 
-- [ ] **Step 1: Fresh install.** Uninstall and reinstall the app on the dev store; run `restock:seed`. Expected: table matches the spec's seed table.
-- [ ] **Step 2: Live sale.** In admin, create an order for 3 × "Cold Brew Can" and mark it paid. Refresh. Expected: stock 3, sold/day 2.1, days left 1, still critical.
+- [ ] **Step 1: Fresh install.** Uninstall and reinstall the app on the dev store; run `restock:seed`. Expected: table matches the spec's seed table, and Cold Brew's sales window tabs read 20, 60 and 84 sold.
+- [ ] **Step 2: Live sale.** In admin, create an order for 3 × "Cold Brew Can" and mark it paid. Refresh. Expected: stock 3, still Critical (about 1 day left: 63 sold ÷ 30 = 2.1 a day); its sales window shows "23 sold in the last 7 days".
 - [ ] **Step 3: Restock.** Set "Dark Roast Beans 340g" stock to 100. Refresh. Expected: risk changes from warning to ok.
 - [ ] **Step 4: Empty state.** On a second dev store with no products, install and open. Expected: "No products yet".
 - [ ] **Step 5: Error state.** Temporarily make the endpoint raise (or stop the backend). Expected: error banner, no crash; then revert.
@@ -379,7 +623,7 @@ end
 
 ---
 
-### Task 8: Documentation
+### Task 10: Documentation
 
 **Files:**
 - Create/replace: `README.md`
@@ -393,20 +637,20 @@ end
 
 ---
 
-### Task 9: Demo
+### Task 11: Demo
 
 **Files:**
 - Create: `docs/demo/script.md`, `docs/demo/demo.gif`
 - Video file stays out of git (link from README once uploaded); add its pattern to `.gitignore`.
 
-- [ ] **Step 1: Write `docs/demo/script.md`:** a shot list for 1 to 2 minutes: products page in admin → open app → walk the table top to bottom → create a 3-unit Cold Brew order → Refresh → numbers change → close on the README.
+- [ ] **Step 1: Write `docs/demo/script.md`:** a shot list for 1 to 2 minutes: products page in admin → open app → walk the table top to bottom → click Cold Brew's badge and switch to 8 weeks → create a 3-unit Cold Brew order → Refresh → numbers change → close on the README.
 - [ ] **Step 2: Re-seed** on recording day.
 - [ ] **Step 3 (you): Record** following the script (macOS Screenshot toolbar, Cmd+Shift+5, "Record Selected Portion").
 - [ ] **Step 4: Make the GIF** from the video with `ffmpeg` (about 15 seconds of the table and refresh, 960 px wide, under 10 MB). Put it in the README. Commit.
 
 ---
 
-### Task 10: Publish and update the resume
+### Task 12: Publish and update the resume
 
 **Files:**
 - Modify: the resume generator script on the Windows PC at `C:\Users\Moe\Documents\Resumes\Muhammad\generator\build2.js` (run `node build2.js "<output>.docx"` there), its output `Muhammad Waheed Resume 2026.docx` and `.pdf`. It holds personal contact info, so it never goes in this public repo. Do this step on the PC, or copy the folder to the Mac privately.
@@ -422,10 +666,9 @@ end
 
 | Dates | Tasks |
 |---|---|
-| Nov 5 to 7 | 1 |
-| Nov 8 to 10 | 2, 3 |
-| Nov 11 to 13 | 4, 5 |
-| Nov 14 to 16 | 6, 7 |
-| Nov 17 to 19 | 8, 9 |
-| Nov 20 to 21 | 10 |
+| Nov 5 | 1 to 6 (done) |
+| Nov 6 to 13 | 7, 8 |
+| Nov 14 to 16 | 9 |
+| Nov 17 to 19 | 10, 11 |
+| Nov 20 to 21 | 12 |
 | Nov 22 to Dec 1 | Buffer |

@@ -7,7 +7,7 @@ class ShopifyStoreData
   VARIANTS_QUERY = <<~GQL
     query($after: String) {
       productVariants(first: 250, after: $after) {
-        nodes { id title sku inventoryQuantity inventoryItem { tracked } product { title } }
+        nodes { id title sku inventoryQuantity inventoryItem { tracked } product { title productType } }
         pageInfo { hasNextPage endCursor }
       }
     }
@@ -18,7 +18,7 @@ class ShopifyStoreData
   ORDERS_QUERY = <<~GQL
     query($after: String, $query: String) {
       orders(first: 250, after: $after, query: $query) {
-        nodes { cancelledAt lineItems(first: 250) { nodes { quantity variant { id } } } }
+        nodes { cancelledAt processedAt lineItems(first: 250) { nodes { quantity variant { id } } } }
         pageInfo { hasNextPage endCursor }
       }
     }
@@ -30,7 +30,7 @@ class ShopifyStoreData
 
   # The shop's local date, so run-out dates match the merchant's calendar (Rails itself runs in UTC).
   def today
-    Time.current.in_time_zone(fetch("{ shop { ianaTimezone } }").dig("shop", "ianaTimezone")).to_date
+    Time.current.in_time_zone(time_zone).to_date
   end
 
   # Only variants that track inventory: an untracked variant's stock number means nothing.
@@ -42,22 +42,44 @@ class ShopifyStoreData
         id: v["id"],
         product_title: v.dig("product", "title"),
         variant_title: (v["title"] unless v["title"] == "Default Title"), # Shopify's name for "no variants"
+        category: v.dig("product", "productType").presence, # Shopify sends "" when the merchant set no type
         sku: v["sku"],
         inventory: v["inventoryQuantity"],
       }
     end
   end
 
-  # Units sold per variant id. Uses processed_at (when the sale happened), not created_at.
+  # Units sold per variant id.
   def units_sold(since:)
-    all_nodes(ORDERS_QUERY, "orders", query: "processed_at:>=#{since.iso8601}")
-      .reject { |order| order["cancelledAt"] }
-      .flat_map { |order| order.dig("lineItems", "nodes") }
-      .select { |line| line["variant"] } # custom items and deleted products have no variant
-      .each_with_object(Hash.new(0)) { |line, totals| totals[line.dig("variant", "id")] += line["quantity"] }
+    sold_lines(since).each_with_object(Hash.new(0)) { |line, totals| totals[line[:variant_id]] += line[:quantity] }
+  end
+
+  # One variant's units per day, by the shop's calendar, for the sales history chart.
+  # shortcut: reads every order since `since` to chart one variant, filter or cache if order volume grows.
+  def daily_units(variant_id, since:)
+    zone = time_zone
+    sold_lines(since).select { |line| line[:variant_id] == variant_id }
+      .each_with_object(Hash.new(0)) { |line, days| days[line[:processed_at].in_time_zone(zone).to_date] += line[:quantity] }
   end
 
   private
+
+  def time_zone
+    @time_zone ||= fetch("{ shop { ianaTimezone } }").dig("shop", "ianaTimezone")
+  end
+
+  # Line items of orders since a date, cancelled orders left out.
+  # Uses processed_at (when the sale happened), not created_at.
+  def sold_lines(since)
+    all_nodes(ORDERS_QUERY, "orders", query: "processed_at:>=#{since.iso8601}")
+      .reject { |order| order["cancelledAt"] }
+      .flat_map do |order|
+        order.dig("lineItems", "nodes").map do |line|
+          { variant_id: line.dig("variant", "id"), quantity: line["quantity"], processed_at: order["processedAt"] }
+        end
+      end
+      .select { |line| line[:variant_id] } # custom items and deleted products have no variant
+  end
 
   def fetch(query, variables = {})
     body = @client.query(query: query, variables: variables).body
