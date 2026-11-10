@@ -59,6 +59,10 @@ assert.ok(
   "variant goes in the product name",
 );
 assert.ok(text(page).includes(" — "), "a blank category shows —");
+assert.ok(
+  text(page).includes(" Dark mode "),
+  "the dark mode toggle is on the page",
+);
 assert.equal(count(page, "summary-button"), 3);
 assert.equal(count(page, "badge-button"), 5);
 assert.equal(count(page, "badge-strong"), 2); // out of stock in the summary and in the table
