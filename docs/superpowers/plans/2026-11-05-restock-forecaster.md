@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-05-restock-forecaster-design.md`
 
-**Execution (chosen 2026-11-05):** Native, with `superpowers:executing-plans`, in one session on the MacBook. Status: Tasks 1 to 6 complete (see the ledger); Tasks 7 and 8 added 2026-11-05.
+**Execution (chosen 2026-11-05):** Native, with `superpowers:executing-plans`, in one session on the MacBook. Status: Tasks 1 to 6 complete (see the ledger); Tasks 7 and 8 added 2026-11-05; Task 8 dropped 2026-11-10.
 
 ## Global Constraints
 
@@ -574,7 +574,9 @@ end
 
 ---
 
-### Task 8: Dark mode toggle
+### Task 8: Dark mode toggle (dropped 2026-11-10)
+
+**Dropped at Muhammad's request.** It was built (commits a00317a, ffb3d63) and removed before merging (reverted on `dev`). Skip this task; the steps below are kept as a record.
 
 Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 
@@ -667,7 +669,7 @@ Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 | Dates | Tasks |
 |---|---|
 | Nov 5 | 1 to 6 (done) |
-| Nov 6 to 13 | 7, 8 |
+| Nov 6 to 13 | 7 (8 dropped) |
 | Nov 14 to 16 | 9 |
 | Nov 17 to 19 | 10, 11 |
 | Nov 20 to 21 | 12 |
