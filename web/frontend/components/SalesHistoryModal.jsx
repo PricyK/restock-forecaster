@@ -11,7 +11,7 @@ import { useQuery } from "react-query";
 
 import { fetchJson } from "../utils/fetchJson";
 import { productName } from "../utils/productName";
-import { SalesChart } from "./SalesChart";
+import { SalesChart, rangeTotal } from "./SalesChart";
 
 // Two corner triangles, like the macOS full-screen button: pointing out to expand, in to shrink.
 const ExpandIcon = (props) => (
@@ -106,6 +106,14 @@ export function SalesHistoryModal({ row, onClose }) {
           </Tabs>
         )}
       </Modal.Section>
+      {data && (
+        // Its own section, so Polaris adds the same spacing and divider line as the days-left line at the top.
+        <Modal.Section>
+          <Text as="p" variant="headingMd" alignment="center">
+            {rangeTotal(range)} sold in the last {range.label}
+          </Text>
+        </Modal.Section>
+      )}
     </Modal>
   );
 }

@@ -356,7 +356,7 @@ Clicking a risk badge opens a small window with that item's units sold over the 
 1. Each badge sits inside a Polaris `UnstyledButton` (`web/frontend/pages/index.jsx`). Clicking it calls `onSelect(row)`, and `HomePage` keeps that row in `useState` as `selected`.
 2. `SalesHistoryModal` (`web/frontend/components/SalesHistoryModal.jsx`) opens whenever `selected` is not `null`. Its `useQuery` fetches `/api/sales_history?variant_id=...`. The id goes through `encodeURIComponent`, because a GID like `gid://shopify/ProductVariant/1` contains `:` and `/`. `enabled: Boolean(row)` stops the fetch while the window is closed.
 3. Rails routes the request to `ForecastsController#sales_history`. That action reads the id with `params.require(:variant_id)`, which answers `400` by itself when the id is missing. It then asks `ShopifyStoreData#daily_units` for that variant's sales per day and hands them to `SalesHistory`, which returns the three ranges as JSON.
-4. The window shows three Polaris `Tabs` and the chart for the selected tab, with that range's total underneath ("19 sold in the last 7 days"). `SalesChart` receives the whole range (`{ label, points }`), so it computes the total once for both the caption and the screen-reader sentence.
+4. The window shows three Polaris `Tabs` and the chart for the selected tab, with that range's total underneath ("20 sold in the last 7 days") in its own `Modal.Section`, so Polaris gives it the same spacing and divider line as the days-left line at the top. `rangeTotal(range)` in `SalesChart.jsx` adds the range up, and both that line and the chart's screen-reader sentence use it.
 
 ### One controller, two actions, one `rescue_from`
 

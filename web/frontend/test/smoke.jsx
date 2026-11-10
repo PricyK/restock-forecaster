@@ -8,7 +8,7 @@ import en from "@shopify/polaris/locales/en.json";
 import { QueryClient, QueryClientProvider } from "react-query";
 
 import HomePage from "../pages/index.jsx";
-import { SalesChart } from "../components/SalesChart.jsx";
+import { SalesChart, rangeTotal } from "../components/SalesChart.jsx";
 import { stockLeft } from "../components/SalesHistoryModal.jsx";
 import NotFound from "../pages/NotFound.jsx";
 import { PolarisProvider } from "../components/providers/PolarisProvider.jsx";
@@ -85,7 +85,7 @@ const chart = renderToStaticMarkup(
     <SalesChart range={{ label: "7 days", points: week }} />
   </AppProvider>,
 );
-assert.ok(text(chart).includes("21 sold in the last 7 days"));
+assert.equal(rangeTotal({ label: "7 days", points: week }), 21); // the window shows this under the chart
 // The last point is today (still counting): its segment is dashed and its tooltip says "so far".
 assert.equal(count(chart, "stroke-dasharray"), 1);
 assert.equal(count(chart, 'fill="var(--p-surface)"'), 1); // hollow end dot: still visible when 30 points make the dashes too short
