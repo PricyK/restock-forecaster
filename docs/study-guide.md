@@ -334,9 +334,9 @@ App Bridge is Shopify's script that connects an embedded app to the admin around
 
 ### Small details worth knowing
 
-- `formatDate`: dates arrive as `"2026-11-08"`, and `new Date("2026-11-08")` means midnight UTC. Formatting that in New York time would show Nov 7, so the code formats in UTC (`timeZone: "UTC"`) to keep the day as sent.
-- `summarize` counts rows per risk, drops the zeros, and joins the rest with " · ". With no critical, warning or out-of-stock rows it says "Nothing at risk".
-- `row.variant_title ?? ""`: `??` means "use the right side if the left is `null` or missing".
+- Dates arrive as `"2026-11-08"`, and `new Date("2026-11-08")` means midnight UTC. Formatting that in New York time would show Nov 7, so dates are formatted in UTC (`timeZone: "UTC"`). The table's date column (and its `formatDate`) was removed in Task 7; the chart's `shortDate` uses the same trick.
+- The one-line summary written here was replaced in Task 7 by three boxes; see "Badges and the summary boxes" there.
+- `row.category ?? "—"`: `??` means "use the right side if the left is `null` or missing".
 - `key={row.id}` on the badge: React asks for a `key` on elements inside a list so it can tell them apart when the list changes.
 
 ### Removed in this task
@@ -346,3 +346,115 @@ The template's example code: the product counter card (`ProductsCard.jsx`), its 
 ### How it was checked
 
 The frontend builds (`npm run build`). On Nov 5, the page in the Ridgeline Coffee Co. admin matched the seed table row for row, and Refresh fetched again. There are no automated React tests, which is a decision in the spec: the frontend is checked by hand and in the demo.
+
+## Task 7: The sales history window
+
+Clicking a risk badge opens a small window with that item's units sold over the last 7 days, 30 days and 8 weeks, drawn as a line chart.
+
+### What happens on a click
+
+1. Each badge sits inside a Polaris `UnstyledButton` (`web/frontend/pages/index.jsx`). Clicking it calls `onSelect(row)`, and `HomePage` keeps that row in `useState` as `selected`.
+2. `SalesHistoryModal` (`web/frontend/components/SalesHistoryModal.jsx`) opens whenever `selected` is not `null`. Its `useQuery` fetches `/api/sales_history?variant_id=...`. The id goes through `encodeURIComponent`, because a GID like `gid://shopify/ProductVariant/1` contains `:` and `/`. `enabled: Boolean(row)` stops the fetch while the window is closed.
+3. Rails routes the request to `ForecastsController#sales_history`. That action reads the id with `params.require(:variant_id)`, which answers `400` by itself when the id is missing. It then asks `ShopifyStoreData#daily_units` for that variant's sales per day and hands them to `SalesHistory`, which returns the three ranges as JSON.
+4. The window shows three Polaris `Tabs` and the chart for the selected tab, with that range's total underneath ("19 sold in the last 7 days"). `SalesChart` receives the whole range (`{ label, points }`), so it computes the total once for both the caption and the screen-reader sentence.
+
+### One controller, two actions, one `rescue_from`
+
+The new endpoint is a second action on the forecast controller, not a new controller. It needs the same login check, the same 401 retry (`with_token_refetch`) and the same 502 message. Before, the error handling was a `rescue` written inside `show`, which only covers `show`. `rescue_from ShopifyStoreData::Error, ShopifyAPI::Errors::HttpResponseError, with: :shopify_failed` at the top of the class covers every action, so both endpoints share one copy of the message. The 401 retry still runs first, because `with_token_refetch` catches the 401 inside the action, before `rescue_from` sees anything. The tests also share one setup.
+
+### Counting by day: `daily_units` and `sold_lines`
+
+`units_sold` (for the table) and `daily_units` (for the chart) both start from one private method, `sold_lines` in `web/app/services/shopify_store_data.rb`. It reads orders since a date, drops cancelled orders and lines without a variant, and returns each line's variant id, quantity and `processedAt`. Because both use it, a future change to the rules, such as subtracting refunds, reaches the table and the chart together.
+
+`daily_units` keeps the lines for one variant and adds them up per day: `line[:processed_at].in_time_zone(zone).to_date`. `processedAt` is a UTC time such as `"2026-11-06T02:00:00Z"`. In New York that is 9 p.m. on Nov 5, so the sale counts on Nov 5. `Hash.new(0)` is a hash whose missing keys read as 0, so `days[date] += 2` works on a new date.
+
+### The time zone, looked up once
+
+`today` and `daily_units` both need the shop's time zone. `@time_zone ||= fetch(...)` means "if `@time_zone` is still empty, fetch it and keep it". The first call asks Shopify, and later calls on the same object reuse the answer. One `ShopifyStoreData` object is made per request, so each click costs one time-zone lookup, not two. The test "looks up the time zone once" counts the calls.
+
+### `SalesHistory` (`web/app/services/sales_history.rb`)
+
+A plain Ruby class like `Forecast`, with no Shopify code:
+
+- It builds 56 days (`DAYS = 56`, 8 full weeks) ending today. Each day reads `daily_units.fetch(date, 0)`, so a day with no sales is 0 and the line has no gaps.
+- "7 days" is `days.last(7)`, and "30 days" is `days.last(30)`.
+- "8 weeks" is `days.each_slice(7)`: 8 groups of 7 days, each summed and dated by its first day. The last group ends today.
+
+Why 8 weeks and not a year? `read_orders` only returns the last 60 days of orders. Older orders need the `read_all_orders` scope, which Shopify must approve for Partner apps, and Muhammad chose not to request it.
+
+### Making the table and chart count the same 30 days
+
+Before this task the forecast counted from `today - 30`. Counting today, that is 31 calendar days, while the rate divides by 30. It now counts from `today - 29`, which is today and the 29 days before it. That is exactly the chart's 30-day tab, so "Sold/day 2" and "60 in 30 days" always agree. The controller test "passes a 30 day window" pins the start date.
+
+### The chart: turning numbers into positions (`web/frontend/components/SalesChart.jsx`)
+
+An SVG is a drawing described in code. `viewBox="0 0 340 160"` sets up a 340 × 160 coordinate space that scales to the window's width.
+
+- **Across:** point `i` sits at `x(i) = left padding + i × step`, where `step` is the plot width divided by the number of gaps between points.
+- **Up:** SVG's y grows downward, so `y(units) = top padding + plot height × (1 − units / top)`. That puts 0 at the bottom and `top` at the top. `top` is the biggest value rounded up to an even number, so the middle tick is a whole number.
+- **The line** is one `polyline` through all the points. The 7-day and 8-week ranges also get dots. The 30-day range dots only its last point, because 30 dots would crowd the line.
+- **Today is still counting:** the last point is today, or the week that includes today, so on a real store it is low until the day ends. The last segment is drawn dashed (`strokeDasharray`) and its tooltip says "so far", so a morning dip doesn't look like a collapse.
+- **Hover:** each point has an invisible full-height strip holding a `<title>`. The browser shows that as a tooltip ("Nov 3: 6 sold") when you hover anywhere above that date.
+- **Colours** are Polaris CSS variables (`var(--p-interactive)` and others), never fixed colour codes, so a theme change reaches the chart.
+- **Expand / Shrink:** the window keeps `expanded` in `useState` and switches Polaris's `small` and `large` sizes with an icon button. The icons are two tiny SVG drawings in `SalesHistoryModal.jsx`, like the macOS full-screen button: two corner triangles pointing out (expand) or in (shrink). A Polaris `Button` accepts any SVG component as its `icon`, and Polaris colours it like its own icons. Polaris's window header has no slot for extra buttons, but its `title` accepts any React content. So the title is the product name plus the button, and two CSS rules in `index.html` stretch the title across its row so the button lands just left of the X. `h2:has(> .window-title)` means "the heading that contains our title", using the CSS `:has()` selector. The chart gets `wide={expanded}` and uses a 680 × 220 drawing area instead of 340 × 160. A wider `viewBox` means more room for the same 12-pixel text; just stretching the small chart would have made every label twice as big.
+- **Screen readers:** `role="img"` plus an `aria-label` sentence such as "Units sold per day, Oct 30 to Nov 5: 12 in total." A weekly point is dated by its first day, so on the 8-week tab the sentence adds 6 days to reach the real end.
+
+### `fetchJson` (`web/frontend/utils/fetchJson.js`)
+
+The page and the window both need "fetch, and if it fails, throw the server's error sentence". That code moved out of `index.jsx` into one shared function, so the two can't drift apart.
+
+### The seed: one order a day
+
+The first version placed an order every 3 days, and the 30-day chart came out as a row of spikes. `SeedScenario.orders(today:, zone:)` (`web/app/services/seed_scenario.rb`) now returns 38 orders:
+
+- **30 recent orders**, one on each of the 30 days in the forecast window: at noon shop time, and today's at midnight so it is never in the future. Selling today too keeps every chart from ending in a drop to 0. `DAILY` lists each product's units per day, oldest first: Cold Brew climbs, Dark Roast has a weekly hump, the mug is flat, and Oat Milk climbs, then drops to zero when it sold out. Their totals are what the forecast table uses (60, 45 and 30 for B, C and D, as in the spec's seed table).
+- **8 extra products** (F to M), so each risk level has two or three rows. They sell evenly: `even(total)` spreads a 29-day total in whole units, so neighbouring days differ by at most 1 and the lines stay smooth. `((i + 1) * total / 29) - (i * total / 29)` is the units for day `i`, using integer division, and the days always add up to `total`.
+- **8 older orders**, two a week from 54 to 30 days back. These fall outside the 30 days, so they only show on the 8-week chart. Pour-Over Kettle sells only here, so its "No recent sales" chart shows sales that stopped.
+
+Why noon shop time? With orders at "now minus 6.5 days", whether an order counts in the 7-day total depended on the time of day the seed ran. Noon on a fixed date always lands on that date. The rake task now asks Shopify for the shop's time zone (`ianaTimezone`) and passes it in. Noon is set with `.change(hour: 12)`, not "midnight + 12 hours". Nov 1, 2026 has 25 hours, because the clocks go back for daylight saving, so midnight + 12 hours would be 11 a.m. A test caught exactly that.
+
+The test "Cold Brew's chart climbs week by week" runs the seed's orders through `SalesHistory` and pins the numbers the demo shows: 20, 60 and 84 sold, the weekly line 6, 6, 6, 8, 9, 13, 16, 20, and 3 sold today.
+
+### Badges and the summary boxes
+
+- **The badge is the button.** Polaris 10's `UnstyledButton` does not remove the browser's own button look: Safari drew a grey box around every badge. A `badge-button` style in `web/frontend/index.html` clears the background, border and padding. A focus ring appears only for keyboard focus (`:focus-visible`), and `filter: brightness(0.88)` deepens any badge's colour on hover.
+- **Out of stock has its own red.** Polaris 10 has one critical badge colour, so "Out of stock" and "Critical" looked the same. A `badge-strong` wrapper switches the out-of-stock badge to Polaris's strong red (`--p-color-bg-critical-strong`) with white text. That is a contrast of about 5.7:1, above the 4.5:1 minimum for small text.
+- **`RiskBadge`** draws a badge for a risk, and both the table and the summary use it, so they always match.
+- **`RiskSummary`** replaces the old one-line summary: three equal boxes (a CSS grid with `repeat(3, 1fr)`) for Out of stock, Critical and Warning. Each box has the badge on top and the count underneath, and thin divider lines separate them.
+- **Clicking a box filters the table.** `ForecastTable` keeps the chosen risk in `useState` (`filter`), and the table shows only rows with that risk. Clicking the same box again sets it back to `null`, which shows all rows. A box with a count of 0 is `disabled`. After a refresh, the line `const active = rows.some((row) => row.risk === filter) ? filter : null` drops a filter whose count fell to 0, so the table never shows empty. `pressed={risk === active}` sets `aria-pressed`, which tells screen readers which box is on, and the CSS uses it to highlight that box.
+
+### Categories and fewer columns
+
+After the first look in the admin, Muhammad asked for a category per product and less clutter. The table now has five columns: Product, Category, SKU, Stock, Risk.
+
+- **Category** is the product's Shopify *product type*: `product { productType }` in `VARIANTS_QUERY`. Shopify sends `""` when no type is set. `.presence` turns `""` into `nil`, and the table shows "—". The seed sets the types (`type:` in `SeedScenario::PRODUCTS`, `productType:` in the rake task's `productSet`).
+- **Sold/day, Runs out and Days left** were dropped from the table as clutter. The forecast still works them out, because the risk badge depends on days left, and the API still returns them.
+- **Variant** moved into the Product column through `productName(row)` (`web/frontend/utils/productName.js`), so a variant reads "T-Shirt – Large". The table, the window's title and the badge's screen-reader label all use it.
+
+### Days left, inside the window
+
+The table no longer shows Days left, so the window's first line says it in words. `stockLeft(row)` in `SalesHistoryModal.jsx` turns the forecast row into a sentence: "About 3 days of stock left.", "About 1 day…" (singular), "Less than a day of stock left." (days left is 0 but there is still stock, for example 1 unit selling 2 a day), "Out of stock now.", or, with no recent sales, "No sales in the last 30 days, so no run-out estimate." It uses the row the page already has, so it shows at once, before the chart has loaded. It sits in its own `Modal.Section`, and Polaris puts the spacing and a divider between that section and the tabs.
+
+### The smoke test (`web/frontend/test/smoke.jsx`, run with `npm run smoke`)
+
+After one change, the page went blank in the admin, even though `npm run build` had passed. A build only checks that the code can be bundled. It doesn't run the code, so a mistake that only shows up while drawing gets through.
+
+The smoke test runs the code. esbuild (the bundler Vite itself uses) bundles the test, and Node runs it. It draws the page to HTML with `react-dom/server`, the same React that runs in the browser but producing a string instead of a screen. The page is wrapped in Polaris's `AppProvider` and given a react-query cache that already holds sample rows, so it draws the table without fetching anything. Node's `assert` then checks the result:
+
+- the five columns;
+- "Product B – Large";
+- "—" for a missing category;
+- 3 summary buttons, 5 badge buttons and the strong red badge;
+- summary boxes with no rows can't be clicked;
+- the chart's total and its screen-reader sentence, including the weekly end date;
+- every `stockLeft` sentence.
+
+If any check fails, the command fails. `process.exit(0)` at the end is there because react-query keeps a timer running that would otherwise stop Node from exiting.
+
+The test was proved by putting the blank-page bug back: it failed with `ReferenceError: row is not defined`, the same error the browser hit. It runs only on the developer's machine and is not part of the website, so it can't slow the page down.
+
+It also caught a real styling bug on its first run. Polaris's `UnstyledButton` marks a disabled button with `aria-disabled="true"` (and keeps it out of the Tab order), not the HTML `disabled` attribute. So the CSS that was meant to stop hover shading on empty boxes (`:disabled`) never applied. The selectors now use `[aria-disabled="true"]`. Polaris also blocks the click itself, through its `useDisableClick` helper.
+
+### Tests
+
+46 Ruby runs in total, plus the smoke test. New: 1 for a blank product type; New: 4 for `SalesHistory`; 1 seed test pinning Cold Brew's chart; 3 for `daily_units` (local day, cancelled orders, one time-zone lookup); and 4 for the endpoint (JSON shape, 8-week window for the requested variant, 400 without an id, 502 when Shopify fails).
