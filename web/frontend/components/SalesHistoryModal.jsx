@@ -7,12 +7,23 @@ import {
   Tabs,
   Text,
 } from "@shopify/polaris";
-import { MaximizeMajor, MinimizeMajor } from "@shopify/polaris-icons";
 import { useQuery } from "react-query";
 
 import { fetchJson } from "../utils/fetchJson";
 import { productName } from "../utils/productName";
 import { SalesChart } from "./SalesChart";
+
+// Two corner triangles, like the macOS full-screen button: pointing out to expand, in to shrink.
+const ExpandIcon = (props) => (
+  <svg viewBox="0 0 20 20" {...props}>
+    <path d="M4 4h8l-8 8zM16 16H8l8-8z" />
+  </svg>
+);
+const ShrinkIcon = (props) => (
+  <svg viewBox="0 0 20 20" {...props}>
+    <path d="M9 9H2l7-7zM11 11h7l-7 7z" />
+  </svg>
+);
 
 // The forecast's days left, in words. The table has no Days left column, so the window says it.
 export function stockLeft(row) {
@@ -42,7 +53,7 @@ export function SalesHistoryModal({ row, onClose }) {
       {productName(row)}
       <Button
         plain
-        icon={expanded ? MinimizeMajor : MaximizeMajor}
+        icon={expanded ? ShrinkIcon : ExpandIcon}
         accessibilityLabel={expanded ? "Shrink window" : "Expand window"}
         onClick={() => setExpanded(!expanded)}
       />
