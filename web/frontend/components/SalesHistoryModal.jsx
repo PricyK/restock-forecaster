@@ -28,12 +28,12 @@ const ShrinkIcon = (props) => (
 
 // The forecast's days left, in words. The table has no Days left column, so the window says it.
 export function stockLeft(row) {
-  if (row.risk === "out_of_stock") return "Out of stock now.";
+  if (row.risk === "out_of_stock") return "Out of stock now";
   if (row.days_left === null) {
-    return "No sales in the last 30 days, so no run-out estimate.";
+    return "No sales in the last 30 days, so no run-out estimate";
   }
-  if (row.days_left === 0) return "Less than a day of stock left.";
-  return `About ${row.days_left} ${row.days_left === 1 ? "day" : "days"} of stock left.`;
+  if (row.days_left === 0) return "Less than a day of stock left";
+  return `About ${row.days_left} ${row.days_left === 1 ? "day" : "days"} of stock left`;
 }
 
 // row is a forecast row, or null while the window is closed.

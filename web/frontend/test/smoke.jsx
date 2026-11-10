@@ -125,34 +125,34 @@ assert.ok(
 const bubble = (risk) =>
   renderToStaticMarkup(
     <AppProvider i18n={en}>
-      <RiskBadge risk={risk}>About 3 days of stock left.</RiskBadge>
+      <RiskBadge risk={risk}>About 3 days of stock left</RiskBadge>
     </AppProvider>,
   );
 assert.ok(bubble("critical").includes("Polaris-Badge--statusCritical"));
-assert.ok(text(bubble("critical")).includes("About 3 days of stock left."));
+assert.ok(text(bubble("critical")).includes("About 3 days of stock left"));
 assert.ok(bubble("out_of_stock").includes("badge-strong"));
 assert.ok(!bubble("critical").includes("badge-strong"));
 
 // The days-left sentence in the sales window.
 assert.equal(
   stockLeft(row("B", "Coffee", 3, "critical")),
-  "About 3 days of stock left.",
+  "About 3 days of stock left",
 );
 assert.equal(
   stockLeft(row("B", "Coffee", 1, "critical")),
-  "About 1 day of stock left.",
+  "About 1 day of stock left",
 );
 assert.equal(
   stockLeft(row("B", "Coffee", 0, "critical")),
-  "Less than a day of stock left.",
+  "Less than a day of stock left",
 );
 assert.equal(
   stockLeft(row("A", "Milk", 0, "out_of_stock")),
-  "Out of stock now.",
+  "Out of stock now",
 );
 assert.equal(
   stockLeft(row("E", "Equipment", null, "no_recent_sales")),
-  "No sales in the last 30 days, so no run-out estimate.",
+  "No sales in the last 30 days, so no run-out estimate",
 );
 
 // The "Not found" page has its words without any translation setup.
