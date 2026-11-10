@@ -1,11 +1,7 @@
 import { Text } from "@shopify/polaris";
 
 // A one-line SVG chart. Colours are Polaris CSS variables so a theme change reaches the chart too.
-const WIDTH = 340;
-const HEIGHT = 160;
 const PAD = { top: 10, right: 12, bottom: 24, left: 28 };
-const PLOT_W = WIDTH - PAD.left - PAD.right;
-const PLOT_H = HEIGHT - PAD.top - PAD.bottom;
 
 // Dates arrive as "YYYY-MM-DD" (midnight UTC), so format in UTC to keep the day.
 function shortDate(iso) {
@@ -17,7 +13,11 @@ function shortDate(iso) {
 }
 
 // range is one of the API's ranges: { label: "7 days", points: [{ date, units }] }.
-export function SalesChart({ range }) {
+// wide: the expanded window. The drawing area grows instead of the chart scaling up, so labels keep their size.
+export function SalesChart({ range, wide = false }) {
+  const [WIDTH, HEIGHT] = wide ? [680, 220] : [340, 160];
+  const PLOT_W = WIDTH - PAD.left - PAD.right;
+  const PLOT_H = HEIGHT - PAD.top - PAD.bottom;
   const { label, points } = range;
   const unit = label.includes("week") ? "week" : "day";
   const total = points.reduce((sum, p) => sum + p.units, 0);

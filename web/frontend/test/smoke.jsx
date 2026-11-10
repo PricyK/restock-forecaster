@@ -94,6 +94,15 @@ assert.ok(
   ),
 );
 
+// The expanded window redraws the chart wider instead of scaling it, so labels keep their size.
+assert.ok(chart.includes('viewBox="0 0 340 160"'));
+const wide = renderToStaticMarkup(
+  <AppProvider i18n={en}>
+    <SalesChart range={{ label: "7 days", points: week }} wide />
+  </AppProvider>,
+);
+assert.ok(wide.includes('viewBox="0 0 680 220"'));
+
 // A weekly point is dated by its first day, so the sentence ends 6 days later.
 const weeks = [
   { date: "2026-10-23", units: 4 },

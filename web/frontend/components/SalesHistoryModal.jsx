@@ -19,6 +19,7 @@ export function stockLeft(row) {
 // row is a forecast row, or null while the window is closed.
 export function SalesHistoryModal({ row, onClose }) {
   const [tab, setTab] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["sales_history", row?.id],
     queryFn: () =>
@@ -31,7 +32,19 @@ export function SalesHistoryModal({ row, onClose }) {
   const range = data?.ranges[tab];
 
   return (
-    <Modal open={Boolean(row)} onClose={onClose} title={title} small>
+    <Modal
+      open={Boolean(row)}
+      onClose={onClose}
+      title={title}
+      small={!expanded}
+      large={expanded}
+      secondaryActions={[
+        {
+          content: expanded ? "Shrink" : "Expand",
+          onAction: () => setExpanded(!expanded),
+        },
+      ]}
+    >
       {row && (
         <Modal.Section>
           <Text as="p" variant="headingMd">
@@ -63,7 +76,7 @@ export function SalesHistoryModal({ row, onClose }) {
             selected={tab}
             onSelect={setTab}
           >
-            <SalesChart range={range} />
+            <SalesChart range={range} wide={expanded} />
           </Tabs>
         )}
       </Modal.Section>
