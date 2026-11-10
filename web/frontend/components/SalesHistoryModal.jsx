@@ -73,7 +73,7 @@ export function SalesHistoryModal({ row, onClose }) {
     >
       {row && (
         <Modal.Section>
-          <Text as="p" variant="headingMd">
+          <Text as="p" variant="headingMd" alignment="center">
             {stockLeft(row)}
           </Text>
         </Modal.Section>
