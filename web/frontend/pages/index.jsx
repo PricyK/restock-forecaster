@@ -3,12 +3,15 @@ import {
   Card,
   DataTable,
   EmptyState,
+  Icon,
   Layout,
   Page,
   SkeletonBodyText,
+  Spinner,
   Text,
   UnstyledButton,
 } from "@shopify/polaris";
+import { ReplayMinor } from "@shopify/polaris-icons";
 import { useState } from "react";
 import { useQuery } from "react-query";
 
@@ -111,12 +114,21 @@ export default function HomePage() {
   return (
     <Page
       title="Restock Forecaster"
-      primaryAction={{
-        content: "Refresh",
-        onAction: () => refetch(),
-        loading: isFetching,
-        disabled: isLoading,
-      }}
+      // A round icon button, like a browser's reload button. It shows a spinner while the data reloads.
+      primaryAction={
+        <UnstyledButton
+          className="refresh-button"
+          accessibilityLabel="Refresh"
+          disabled={isFetching}
+          onClick={() => refetch()}
+        >
+          {isFetching ? (
+            <Spinner size="small" />
+          ) : (
+            <Icon source={ReplayMinor} />
+          )}
+        </UnstyledButton>
+      }
     >
       <Layout>
         {error && (

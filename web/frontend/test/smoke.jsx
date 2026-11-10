@@ -64,6 +64,12 @@ assert.ok(
 );
 assert.ok(text(page).includes(" — "), "a blank category shows —");
 assert.equal(count(page, "summary-button"), 3);
+// Refresh is a round icon button (class refresh-button) with a label for screen readers, not a text button.
+assert.ok(
+  /<button[^>]*refresh-button[^>]*aria-label="Refresh"|<button[^>]*aria-label="Refresh"[^>]*refresh-button/.test(
+    page,
+  ),
+);
 assert.equal(count(page, "badge-button"), 5);
 assert.equal(count(page, "badge-strong"), 2); // out of stock in the summary and in the table
 assert.equal(disabledBoxes(page), 0);
