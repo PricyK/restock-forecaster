@@ -33,11 +33,7 @@
       /* The window title holds the size button; let the title fill its row so the button sits beside the close X. */
       .window-title { display: flex; align-items: center; justify-content: space-between; gap: var(--p-space-2); }
       h2:has(> .window-title) { flex: 1; }
-      /* Refresh: a round icon button, like a browser's reload button. */
-      .refresh-button { appearance: none; width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 1px solid var(--p-border); background: var(--p-surface); display: grid; place-items: center; cursor: pointer; }
-      .refresh-button:hover:not([aria-disabled="true"]) { background: var(--p-surface-hovered); }
-      .refresh-button[aria-disabled="true"] { cursor: default; }
-      .badge-button:focus-visible, .summary-button:focus-visible, .refresh-button:focus-visible { outline: 2px solid var(--p-focused); outline-offset: 2px; }
+      .badge-button:focus-visible, .summary-button:focus-visible { outline: 2px solid var(--p-focused); outline-offset: 2px; }
     </style>
   </head>
   <body>

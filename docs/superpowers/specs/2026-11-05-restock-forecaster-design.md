@@ -92,7 +92,7 @@ The forecasting logic lives in one plain Ruby class with no Shopify dependency, 
 1. Merchant opens the app in the Shopify admin. The template handles OAuth and the session.
 2. The React page calls the app's backend endpoint (for example `GET /api/forecast`) through the template's authenticated fetch.
 3. The Rails controller queries the GraphQL Admin API for variants with inventory and for orders from the last 30 days, passes the results to the forecast class, and returns JSON.
-4. The page renders a Polaris table with risk badges and a Refresh button, plus loading, empty, and error states. (Since 2026-11-10 Refresh is a round icon button with a circular arrow, like a browser's reload button, labelled "Refresh" for screen readers.)
+4. The page renders a Polaris table with risk badges and a Refresh button, plus loading, empty, and error states.
 
 The table shows every variant, not only at-risk ones, so the sort order puts the at-risk rows on top. The empty state means "this store has no products". Above the table, three equal boxes show how many rows are out of stock, critical and warning, in that order, each under the same badge the table uses (changed 2026-11-05 at Muhammad's request; it replaced a one-line summary). "Out of stock" uses Polaris's strong red so it stands apart from "Critical". Hovering a badge deepens its colour. Clicking a box shows only that risk's rows, and clicking it again shows all. A box with a count of 0 can't be clicked. If a refresh drops the selected risk's count to 0, the filter clears, so the table never shows empty.
 
