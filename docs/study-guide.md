@@ -503,3 +503,15 @@ There are two deliberate `!` marks (non-null assertions, meaning "trust me, this
 - `npm run typecheck` (in `web/frontend`): 0 errors. It was proved by adding a call with missing fields, watching it fail, and removing it. It's now one of the checks before every merge.
 - The smoke test is TypeScript too (`test/smoke.tsx`), and the build, the smoke test and the 47 Ruby tests all pass unchanged.
 - The two build-setup files (`vite.config.js`, `dev_embed.js`) stay JavaScript, because they configure tools and aren't part of the app.
+
+## Task 9: Testing on the real store (Nov 10 and 15)
+
+The automated tests use made-up data. Task 9 checked the app against a real Shopify store, the way a merchant would use it, and wrote the results down in `docs/testing.md`, including what wasn't checked. The checks:
+
+1. **Uninstall, reinstall, seed.** Uninstalling made Shopify send the `app/uninstalled` webhook, and the app deleted the store's saved login. Reinstalling created a new one. Its access token lasts an hour, and the app renews it automatically. Seeding then worked over the new connection.
+2. **A real sale.** An order for 3 Cold Brew, made in the admin, dropped stock from 6 to 3 and appeared in the chart as today's point. The forecast recalculated to "about 1 day left". The plan expected "23 sold in the last 7 days", but the seed was five days old by then, so the right answer was 9. It's worth being able to explain why the number differed: backdated sales age out of the 30-day and 7-day windows day by day.
+3. **A restock.** Setting Earl Grey Tea to 100 moved it from Warning to OK ("about 120 days"). The plan named Dark Roast for this, but Dark Roast had already aged into OK, for the same reason.
+4. **An empty store.** This became an automated check rather than a second store: the smoke test draws the page with zero rows and expects "No products yet".
+5. **Errors.** Both endpoints were made to fail on purpose for a minute. The page showed the friendly red banner with Retry, and the real error went only to the server log.
+
+What to take from it: tests show the code does what you meant, and a real store shows that what you meant fits reality. Both caught different things in this project. The real store showed, for example, the drop to 0 at "today", the Safari button styling, and the blank page.
