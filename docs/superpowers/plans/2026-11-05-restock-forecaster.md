@@ -617,7 +617,7 @@ Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 - [ ] **Step 1: Fresh install.** Uninstall and reinstall the app on the dev store; run `restock:seed`. Expected: table matches the spec's seed table, and Cold Brew's sales window tabs read 20, 60 and 84 sold.
 - [ ] **Step 2: Live sale.** In admin, create an order for 3 × "Cold Brew Can" and mark it paid. Refresh. Expected: stock 3, still Critical (about 1 day left: 63 sold ÷ 30 = 2.1 a day); its sales window shows "23 sold in the last 7 days".
 - [ ] **Step 3: Restock.** Set "Dark Roast Beans (340g)" stock to 100. Refresh. Expected: risk changes from warning to ok.
-- [ ] **Step 4: Empty state.** On a second dev store with no products, install and open. Expected: "No products yet".
+- [ ] **Step 4: Empty state.** On a second dev store with no products, install and open. Expected: "No products yet". *(Replaced 2026-11-15 at Muhammad's choice by a smoke-test check that renders zero rows; see `docs/testing.md`.)*
 - [ ] **Step 5: Error state.** Temporarily make the endpoint raise (or stop the backend). Expected: error banner, no crash; then revert.
 - [ ] **Step 6: Full test suite.** `bin/rails test` → all PASS. Record counts in `docs/testing.md`.
 - [ ] **Step 7: Whole-repo audit.** Run `ponytail:ponytail-audit`. Record findings and decisions in `docs/testing.md`.

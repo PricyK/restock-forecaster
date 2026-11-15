@@ -76,6 +76,11 @@ assert.equal(count(page, "badge-button"), 5);
 assert.equal(count(page, "badge-strong"), 2); // out of stock in the summary and in the table
 assert.equal(disabledBoxes(page), 0);
 
+// A store with no products (or none that track inventory) gets the empty screen, not an empty table.
+const empty = renderPage([]);
+assert.ok(text(empty).includes("No products yet"));
+assert.equal(count(empty, "summary-button"), 0);
+
 // A summary box with no rows can't be clicked.
 assert.equal(disabledBoxes(renderPage([row("D", "Equipment", 100, "ok")])), 3);
 
