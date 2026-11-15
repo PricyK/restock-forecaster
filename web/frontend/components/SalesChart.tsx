@@ -1,12 +1,14 @@
+import type { SalesRange } from "../types";
+
 // A one-line SVG chart. Colours are Polaris CSS variables so a theme change reaches the chart too.
 const PAD = { top: 10, right: 12, bottom: 24, left: 28 };
 
 // Units sold across a range. The window shows it under the chart; the chart puts it in its screen-reader sentence.
-export const rangeTotal = (range) =>
+export const rangeTotal = (range: SalesRange) =>
   range.points.reduce((sum, p) => sum + p.units, 0);
 
 // Dates arrive as "YYYY-MM-DD" (midnight UTC), so format in UTC to keep the day.
-function shortDate(iso) {
+function shortDate(iso: string | Date) {
   return new Date(iso).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -16,7 +18,13 @@ function shortDate(iso) {
 
 // range is one of the API's ranges: { label: "7 days", points: [{ date, units }] }.
 // wide: the expanded window. The drawing area grows instead of the chart scaling up, so labels keep their size.
-export function SalesChart({ range, wide = false }) {
+export function SalesChart({
+  range,
+  wide = false,
+}: {
+  range: SalesRange;
+  wide?: boolean;
+}) {
   const [WIDTH, HEIGHT] = wide ? [680, 220] : [340, 160];
   const PLOT_W = WIDTH - PAD.left - PAD.right;
   const PLOT_H = HEIGHT - PAD.top - PAD.bottom;
@@ -28,8 +36,8 @@ export function SalesChart({ range, wide = false }) {
     Math.ceil(Math.max(...points.map((p) => p.units)) / 2) * 2,
   ); // even, so the middle tick is whole
   const step = PLOT_W / (points.length - 1);
-  const x = (i) => PAD.left + i * step;
-  const y = (units) => PAD.top + PLOT_H * (1 - units / top);
+  const x = (i: number) => PAD.left + i * step;
+  const y = (units: number) => PAD.top + PLOT_H * (1 - units / top);
   const first = shortDate(points[0].date);
   const end = new Date(points[points.length - 1].date);
   if (unit === "week") end.setUTCDate(end.getUTCDate() + 6); // a week's point is dated by its first day
@@ -72,7 +80,7 @@ export function SalesChart({ range, wide = false }) {
           key={i}
           x={x(i)}
           y={HEIGHT - 6}
-          textAnchor={["start", "middle", "end"][n]}
+          textAnchor={(["start", "middle", "end"] as const)[n]}
           fill="var(--p-text-subdued)"
         >
           {shortDate(points[i].date)}

@@ -1,9 +1,17 @@
 import { useCallback } from "react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { AppProvider } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
 import en from "@shopify/polaris/locales/en.json";
 
-function AppBridgeLink({ url, children, external, ...rest }) {
+// The props Polaris passes to its link component.
+type LinkProps = {
+  url: string;
+  children?: ReactNode;
+  external?: boolean;
+} & AnchorHTMLAttributes<HTMLAnchorElement>;
+
+function AppBridgeLink({ url, children, external, ...rest }: LinkProps) {
   const handleClick = useCallback(() => window.open(url), [url]);
 
   const IS_EXTERNAL_LINK_REGEX = /^(?:[a-z][a-z\d+.-]*:|\/\/)/;
@@ -43,7 +51,7 @@ function AppBridgeLink({ url, children, external, ...rest }) {
  * PolarisProvider also gives Polaris its English text (the app is English only).
  *
  */
-export function PolarisProvider({ children }) {
+export function PolarisProvider({ children }: { children: ReactNode }) {
   return (
     <AppProvider i18n={en} linkComponent={AppBridgeLink}>
       {children}
