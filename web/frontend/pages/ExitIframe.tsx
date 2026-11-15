@@ -14,13 +14,20 @@ export default function ExitIframe() {
     if (!!app && !!search) {
       const params = new URLSearchParams(search);
       const redirectUri = params.get("redirectUri");
-      const url = new URL(decodeURIComponent(redirectUri));
+      // A missing or malformed redirectUri would make new URL() throw; show the warning instead.
+      let url: URL;
+      try {
+        url = new URL(decodeURIComponent(redirectUri ?? ""));
+      } catch {
+        setShowWarning(true);
+        return;
+      }
 
       if (
         [location.hostname, "admin.shopify.com"].includes(url.hostname) ||
         url.hostname.endsWith(".myshopify.com")
       ) {
-        window.open(redirectUri, "_top");
+        window.open(redirectUri!, "_top"); // set: an empty one failed new URL() above
       } else {
         setShowWarning(true);
       }

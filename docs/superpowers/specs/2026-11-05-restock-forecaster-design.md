@@ -60,6 +60,7 @@ Claude writes the code. Muhammad studies it afterwards. So:
 - **Stack (decided):** Shopify's official Ruby app template (`Shopify/shopify-app-template-ruby`): Rails backend using the `shopify_app` gem, React frontend with Polaris and App Bridge, SQLite for session storage. Checked on 2026-11-05 through the GitHub API: neither repo is archived, the template was last pushed 2026-10-30 and the gem 2026-11-02.
 - **Fallback if the template will not run** with the current Shopify CLI: keep Rails and the `shopify_app` gem, and drop the template's wiring in favour of a small hand-built React (Vite) frontend with Polaris and App Bridge. If the latest API version breaks the template, use the newest version the template supports. Rails must stay, because the resume needs it.
 - **API:** Shopify GraphQL Admin API only (no REST), using a current stable API version.
+- **Frontend language:** TypeScript in strict mode since 2026-11-15 (Muhammad's request, so the resume can name it). `npm run typecheck` must pass before every merge.
 
 ## 6. How it works
 
@@ -140,19 +141,19 @@ A script, run against the development store, creates a small product set and bac
 | D | 100 | 30 (1/day) | OK, 100 days left |
 | E | 25 | 0 | No recent sales |
 
-Categories (product types): A Milk, B and C Coffee, D and E Equipment.
+Product names put sizes in brackets, for example "Oat Milk (1L)" (2026-11-10). Categories (product types): A Milk, B and C Coffee, D and E Equipment.
 
 Extra products, so each risk level has two or three rows in the demo (added 2026-11-05 at Muhammad's request). They sell evenly every day:
 
 | Product | Category | Stock | Units sold in last 30 days | Expected result |
 |---|---|---|---|---|
-| F Almond Milk 1L | Milk | 0 | 24 | Out of stock |
-| G Espresso Beans 1kg | Coffee | 5 | 30 | Critical, 5 days left |
-| H Paper Filters 100 Pack | Equipment | 12 | 60 | Critical, 6 days left |
-| I Earl Grey Tea 20 Bags | Tea | 10 | 30 | Warning, 10 days left |
-| J Barista Oat Milk 1L | Milk | 18 | 45 | Warning, 12 days left |
+| F Almond Milk (1L) | Milk | 0 | 24 | Out of stock |
+| G Espresso Beans (1kg) | Coffee | 5 | 30 | Critical, 5 days left |
+| H Paper Filters (100 Pack) | Equipment | 12 | 60 | Critical, 6 days left |
+| I Earl Grey Tea (20 Bags) | Tea | 10 | 30 | Warning, 10 days left |
+| J Barista Oat Milk (1L) | Milk | 18 | 45 | Warning, 12 days left |
 | K Travel Tumbler | Equipment | 40 | 30 | OK, 40 days left |
-| L Decaf Beans 340g | Coffee | 30 | 15 | OK, 60 days left |
+| L Decaf Beans (340g) | Coffee | 30 | 15 | OK, 60 days left |
 | M Milk Frother | Equipment | 8 | 0 (sold only in the older orders) | No recent sales |
 
 The summary boxes read Out of stock 2, Critical 3, Warning 3. The same tables double as the expected values for a manual check.

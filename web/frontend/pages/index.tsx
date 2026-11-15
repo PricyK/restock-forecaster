@@ -16,11 +16,20 @@ import { notFoundImage } from "../assets";
 import { RISK_BADGES, RiskBadge, SalesHistoryModal } from "../components";
 import { fetchJson } from "../utils/fetchJson";
 import { productName } from "../utils/productName";
+import type { ForecastResponse, ForecastRow, Risk } from "../types";
 
-const SUMMARY_RISKS = ["out_of_stock", "critical", "warning"];
+const SUMMARY_RISKS: Risk[] = ["out_of_stock", "critical", "warning"];
 
 // Three equal boxes above the table. Clicking one shows only that risk's rows; clicking it again shows all.
-function RiskSummary({ rows, active, onFilter }) {
+function RiskSummary({
+  rows,
+  active,
+  onFilter,
+}: {
+  rows: ForecastRow[];
+  active: Risk | null;
+  onFilter: (risk: Risk | null) => void;
+}) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
       {SUMMARY_RISKS.map((risk, i) => {
@@ -52,8 +61,14 @@ function RiskSummary({ rows, active, onFilter }) {
   );
 }
 
-function ForecastTable({ rows, onSelect }) {
-  const [filter, setFilter] = useState(null);
+function ForecastTable({
+  rows,
+  onSelect,
+}: {
+  rows: ForecastRow[];
+  onSelect: (row: ForecastRow) => void;
+}) {
+  const [filter, setFilter] = useState<Risk | null>(null);
 
   if (rows.length === 0) {
     return (
@@ -100,10 +115,13 @@ function ForecastTable({ rows, onSelect }) {
 }
 
 export default function HomePage() {
-  const [selected, setSelected] = useState(null);
-  const { data, error, isLoading, isFetching, refetch } = useQuery({
+  const [selected, setSelected] = useState<ForecastRow | null>(null);
+  const { data, error, isLoading, isFetching, refetch } = useQuery<
+    ForecastResponse,
+    Error
+  >({
     queryKey: ["forecast"],
-    queryFn: () => fetchJson("/api/forecast"),
+    queryFn: () => fetchJson<ForecastResponse>("/api/forecast"),
     refetchOnWindowFocus: false,
     retry: false,
   });

@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-05-restock-forecaster-design.md`
 
-**Execution (chosen 2026-11-05):** Native, with `superpowers:executing-plans`, in one session on the MacBook. Status: Tasks 1 to 6 complete (see the ledger); Tasks 7 and 8 added 2026-11-05; Task 8 dropped 2026-11-10.
+**Execution (chosen 2026-11-05):** Native, with `superpowers:executing-plans`, in one session on the MacBook. Status: Tasks 1 to 6 complete (see the ledger); Tasks 7 and 8 added 2026-11-05; Task 8 dropped 2026-11-10; Task 10 (TypeScript) added 2026-11-15.
 
 ## Global Constraints
 
@@ -28,9 +28,9 @@
   - Write all code and designs under `ponytail:ponytail` at **ultra** level (Muhammad's request, 2026-11-05; was full): question any part of a request the need does not justify, then the smallest complete change, `shortcut: <limit>, <when to upgrade>` comments on known limits.
   - Run `ponytail:ponytail-review` on each task's commits before the task's Explain step. Fix real findings, or note why one was skipped in the study guide.
   - Run `ponytail:ponytail-audit` on the whole repo in Task 9.
-  - Use `ponytail:ponytail-debt` output as the source of the README's known-limitations list in Task 10.
+  - Use `ponytail:ponytail-debt` output as the source of the README's known-limitations list in Task 11.
 - **GitHub (Muhammad's request):** the repo `PricyK/restock-forecaster` is created in Task 1, and every task ends with `git push` so progress shows in real time. Ask Muhammad public or private before creating it. Before every push, check `git status` and the diff for secrets: no `.env`, API secret, access tokens, or SQLite database files.
-- **Branches (Muhammad's request, 2026-11-05):** all work is committed on `dev` and pushed there after every task. `dev` merges into `main` only after the task's checks pass: full `bin/rails test` green, `npm run smoke` passing in `web/frontend` (added 2026-11-05), `bundle exec rubocop` clean in `web/` (added 2026-11-10), `ponytail:ponytail-review` findings fixed or noted, the secret check above, and, where the task has one, the manual check on the dev store. Merge with `git merge --no-ff dev` on `main`, then push `main`.
+- **Branches (Muhammad's request, 2026-11-05):** all work is committed on `dev` and pushed there after every task. `dev` merges into `main` only after the task's checks pass: full `bin/rails test` green, `npm run smoke` passing in `web/frontend` (added 2026-11-05), `bundle exec rubocop` clean in `web/` (added 2026-11-10), `npm run typecheck` clean in `web/frontend` (added with Task 10), `ponytail:ponytail-review` findings fixed or noted, the secret check above, and, where the task has one, the manual check on the dev store. Merge with `git merge --no-ff dev` on `main`, then push `main`.
 - **Machine:** Muhammad's MacBook. Work happens in a clone of `PricyK/restock-forecaster` (created on 2026-11-05 with only these docs). All commands below run in Terminal from `web/` unless stated.
 
 ## Review Focus
@@ -616,7 +616,7 @@ Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 
 - [ ] **Step 1: Fresh install.** Uninstall and reinstall the app on the dev store; run `restock:seed`. Expected: table matches the spec's seed table, and Cold Brew's sales window tabs read 20, 60 and 84 sold.
 - [ ] **Step 2: Live sale.** In admin, create an order for 3 × "Cold Brew Can" and mark it paid. Refresh. Expected: stock 3, still Critical (about 1 day left: 63 sold ÷ 30 = 2.1 a day); its sales window shows "23 sold in the last 7 days".
-- [ ] **Step 3: Restock.** Set "Dark Roast Beans 340g" stock to 100. Refresh. Expected: risk changes from warning to ok.
+- [ ] **Step 3: Restock.** Set "Dark Roast Beans (340g)" stock to 100. Refresh. Expected: risk changes from warning to ok.
 - [ ] **Step 4: Empty state.** On a second dev store with no products, install and open. Expected: "No products yet".
 - [ ] **Step 5: Error state.** Temporarily make the endpoint raise (or stop the backend). Expected: error banner, no crash; then revert.
 - [ ] **Step 6: Full test suite.** `bin/rails test` → all PASS. Record counts in `docs/testing.md`.
@@ -625,7 +625,27 @@ Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 
 ---
 
-### Task 10: Documentation
+### Task 10: TypeScript frontend
+
+Muhammad's request (2026-11-15), so the resume can truthfully name TypeScript. No behaviour change.
+
+**Files:**
+- Rename: every app source file in `web/frontend` from `.jsx`/`.js` to `.tsx`/`.ts` (pages, components, providers, utils, assets, `App`, `Routes`, `index`), and `test/smoke.jsx` → `test/smoke.tsx`. `vite.config.js` and `dev_embed.js` stay JavaScript (build setup, not app code).
+- Create: `web/frontend/types.ts` (the API's shapes), `web/frontend/tsconfig.json`.
+- Modify: `web/frontend/index.html` (entry script path), `web/frontend/package.json` (scripts, dev packages).
+
+**Interfaces:**
+- Produces: `Risk`, `ForecastRow`, `ForecastResponse`, `Point`, `SalesRange`, `SalesHistoryResponse` in `types.ts`; `fetchJson<T>(url: string): Promise<T>`.
+- `npm run typecheck` (`tsc --noEmit`) joins the merge checks.
+
+- [ ] **Step 1: Tooling.** Add dev packages `typescript`, `@types/react`, `@types/react-dom`, `@types/node`, and a `tsconfig.json` with `"strict": true`, `"jsx": "react-jsx"`, `"noEmit": true`, `"types": ["vite/client", "node"]`. Add `"typecheck": "tsc --noEmit"`.
+- [ ] **Step 2: Convert.** Rename the files with `git mv` and add types: the API shapes in `types.ts`, prop types on every component, `fetchJson<T>`. No `any`.
+- [ ] **Step 3: Verify.** `npm run typecheck` → no errors; `npm run smoke` → all checks pass; `npm run build` → builds; Prettier clean; `bin/rails test` → all pass. Then Muhammad reloads the app in the admin.
+- [ ] **Step 4: Explain.** Study guide section on TypeScript (what types are, where this app's live, what strict mode catches). Run `ponytail:ponytail-review`, commit, push `dev`, merge per Global Constraints.
+
+---
+
+### Task 11: Documentation
 
 **Files:**
 - Create/replace: `README.md`
@@ -639,7 +659,7 @@ Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 
 ---
 
-### Task 11: Demo
+### Task 12: Demo
 
 **Files:**
 - Create: `docs/demo/script.md`, `docs/demo/demo.gif`
@@ -652,7 +672,7 @@ Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 
 ---
 
-### Task 12: Publish and update the resume
+### Task 13: Publish and update the resume
 
 **Files:**
 - Modify: the resume generator script on the Windows PC at `C:\Users\Moe\Documents\Resumes\Muhammad\generator\build2.js` (run `node build2.js "<output>.docx"` there), its output `Muhammad Waheed Resume 2026.docx` and `.pdf`. It holds personal contact info, so it never goes in this public repo. Do this step on the PC, or copy the folder to the Mac privately.
@@ -670,7 +690,7 @@ Spec: "Dark mode" (bounded change, filter version approved in chat 2026-11-05).
 |---|---|
 | Nov 5 | 1 to 6 (done) |
 | Nov 6 to 13 | 7 (8 dropped) |
-| Nov 14 to 16 | 9 |
-| Nov 17 to 19 | 10, 11 |
-| Nov 20 to 21 | 12 |
+| Nov 14 to 16 | 9, 10 |
+| Nov 17 to 19 | 11, 12 |
+| Nov 20 to 21 | 13 |
 | Nov 22 to Dec 1 | Buffer |

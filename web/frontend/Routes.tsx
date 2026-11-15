@@ -1,4 +1,8 @@
 import { Routes as ReactRouterRoutes, Route } from "react-router-dom";
+import type { ComponentType } from "react";
+
+// What import.meta.glob gives for the /pages folder: file path → the module (its default export is the page).
+export type Pages = Record<string, { default?: ComponentType }>;
 
 /**
  * File-based routing.
@@ -14,13 +18,15 @@ import { Routes as ReactRouterRoutes, Route } from "react-router-dom";
  *
  * @return {Routes} `<Routes/>` from React Router, with a `<Route/>` for each file in `pages`
  */
-export default function Routes({ pages }) {
+export default function Routes({ pages }: { pages: Pages }) {
   const routes = useRoutes(pages);
   const routeComponents = routes.map(({ path, component: Component }) => (
     <Route key={path} path={path} element={<Component />} />
   ));
 
-  const NotFound = routes.find(({ path }) => path === "/notFound").component;
+  // pages/NotFound.tsx catches every unknown address; without it, render nothing there.
+  const NotFound =
+    routes.find(({ path }) => path === "/notFound")?.component ?? (() => null);
 
   return (
     <ReactRouterRoutes>
@@ -30,7 +36,7 @@ export default function Routes({ pages }) {
   );
 }
 
-function useRoutes(pages) {
+function useRoutes(pages: Pages) {
   const routes = Object.keys(pages)
     .map((key) => {
       let path = key
@@ -63,7 +69,10 @@ function useRoutes(pages) {
         component: pages[key].default,
       };
     })
-    .filter((route) => route.component);
+    // Keep pages that export a component (and tell TypeScript component is now always set).
+    .filter((route): route is { path: string; component: ComponentType } =>
+      Boolean(route.component),
+    );
 
   return routes;
 }

@@ -1,6 +1,12 @@
 import { Badge } from "@shopify/polaris";
+import type { BadgeProps } from "@shopify/polaris";
 
-export const RISK_BADGES = {
+import type { Risk } from "../types";
+
+export const RISK_BADGES: Record<
+  Risk,
+  { status?: BadgeProps["status"]; label: string; strong?: boolean }
+> = {
   out_of_stock: { status: "critical", label: "Out of stock", strong: true },
   critical: { status: "critical", label: "Critical" },
   warning: { status: "warning", label: "Warning" },
@@ -10,7 +16,13 @@ export const RISK_BADGES = {
 
 // A risk's coloured bubble. The table shows the risk's name; the sales window puts its own sentence inside.
 // The strong class gives "Out of stock" a deeper red than "Critical" (see index.html).
-export function RiskBadge({ risk, children }) {
+export function RiskBadge({
+  risk,
+  children,
+}: {
+  risk: Risk;
+  children?: string; // Polaris badges only take text
+}) {
   const badge = RISK_BADGES[risk];
   return (
     <span className={badge.strong ? "badge-strong" : undefined}>

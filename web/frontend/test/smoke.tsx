@@ -7,15 +7,22 @@ import { AppProvider, Pagination } from "@shopify/polaris";
 import en from "@shopify/polaris/locales/en.json";
 import { QueryClient, QueryClientProvider } from "react-query";
 
-import HomePage from "../pages/index.jsx";
-import { SalesChart, rangeTotal } from "../components/SalesChart.jsx";
-import { stockLeft } from "../components/SalesHistoryModal.jsx";
-import { RiskBadge } from "../components/RiskBadge.jsx";
-import NotFound from "../pages/NotFound.jsx";
-import { PolarisProvider } from "../components/providers/PolarisProvider.jsx";
-import { fetchJson } from "../utils/fetchJson.js";
+import HomePage from "../pages/index";
+import { SalesChart, rangeTotal } from "../components/SalesChart";
+import { stockLeft } from "../components/SalesHistoryModal";
+import { RiskBadge } from "../components/RiskBadge";
+import NotFound from "../pages/NotFound";
+import { PolarisProvider } from "../components/providers/PolarisProvider";
+import { fetchJson } from "../utils/fetchJson";
+import type { ForecastRow, Risk } from "../types";
 
-const row = (sku, category, days_left, risk, variant_title = null) => ({
+const row = (
+  sku: string,
+  category: string | null,
+  days_left: number | null,
+  risk: Risk,
+  variant_title: string | null = null,
+): ForecastRow => ({
   id: `gid://shopify/ProductVariant/${sku}`,
   product_title: `Product ${sku}`,
   variant_title,
@@ -28,7 +35,7 @@ const row = (sku, category, days_left, risk, variant_title = null) => ({
   risk,
 });
 
-function renderPage(rows) {
+function renderPage(rows: ForecastRow[]) {
   const client = new QueryClient();
   client.setQueryData(["forecast"], { generated_on: "2026-11-05", rows }); // the page reads this instead of fetching
   return renderToStaticMarkup(
@@ -40,12 +47,13 @@ function renderPage(rows) {
   );
 }
 
-const count = (html, text) => html.split(text).length - 1;
+const count = (html: string, text: string) => html.split(text).length - 1;
 // Summary boxes marked disabled (the table's own scroll buttons are disabled too, so match the class).
-const disabledBoxes = (html) =>
+const disabledBoxes = (html: string) =>
   (html.match(/<button[^>]*summary-button[^>]*aria-disabled="true"/g) || [])
     .length;
-const text = (html) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+const text = (html: string) =>
+  html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 // The page draws the boxes, the five columns and a badge button per row.
 const page = renderPage([
@@ -122,7 +130,7 @@ assert.ok(
 );
 
 // The window's days-left sentence sits in the same coloured bubble as the row's risk badge.
-const bubble = (risk) =>
+const bubble = (risk: Risk) =>
   renderToStaticMarkup(
     <AppProvider i18n={en}>
       <RiskBadge risk={risk}>About 3 days of stock left</RiskBadge>
