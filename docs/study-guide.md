@@ -475,3 +475,31 @@ After Task 8 was dropped, a whole-repo audit (`ponytail:ponytail-audit`) found f
 The smoke test gained three checks: the "Not found" page's words, the friendly fetch message, and the Polaris wrapper giving Polaris its English (Pagination's "Next" label comes from those translations). Each check was proved by breaking the code on purpose and watching it fail. A first try used a Banner's "Dismiss notification" label, but that turned out to be written straight into Polaris rather than translated, so it would have passed either way.
 
 `bundle exec rubocop` is now one of the checks before every merge into `main`.
+
+## Task 10: TypeScript (Nov 15)
+
+The frontend was JavaScript and is now **TypeScript**: JavaScript plus labels, called *types*, that say what kind of value each variable and function expects. A checker (`tsc`) reads the labels and reports mistakes before the code ever runs. Browsers don't understand TypeScript, so Vite removes the labels when it builds. That's why the check has to be its own command.
+
+### Where the types live
+
+- **`web/frontend/types.ts`** describes the JSON the Rails API sends. `ForecastRow` is one table row: `id: string`, `days_left: number | null`, and so on. `|` means "or", so `number | null` is "a number, or nothing when there were no sales". `Risk` is the exact list of five risk names (`"out_of_stock" | "critical" | …`), so a misspelled risk such as `"critcal"` is an error.
+- **Components declare their props.** For example, `SalesChart({ range, wide = false }: { range: SalesRange; wide?: boolean })`. The `?` means the prop is optional.
+- **`fetchJson<T>(url)`** is *generic*: the caller names the shape it expects, as in `fetchJson<ForecastResponse>("/api/forecast")`. Data from the network can't be checked by TypeScript, so `fetchJson` is the one place that trusts the server (`return body as T`), and `types.ts` says what that trust covers.
+- **`useQuery<ForecastResponse, Error>`** tells react-query what the data and the error look like, so `error.message` is known to exist.
+
+### Strict mode, and what it caught
+
+`tsconfig.json` sets `"strict": true`. Two of the things that turns on:
+
+- **No silent `any`.** A parameter without a type is an error, not a free pass. The first check found 64 such places. The code has no `any` at all now.
+- **`null` has to be handled.** If something can be missing, TypeScript makes you say what happens then. This caught two real gaps in the template's code:
+  - `pages/ExitIframe.tsx` passed a possibly missing `redirectUri` into `new URL(...)`. A missing one turned into the text `"null"` and crashed the page. Now a `try … catch` shows the warning instead.
+  - `Routes.tsx` assumed a "Not found" page always exists. It now falls back to drawing nothing.
+
+There are two deliberate `!` marks (non-null assertions, meaning "trust me, this isn't null"), each with a comment saying why it's safe. One is for `#app` in `index.html`; the other is for the window's row, which is only read when a row is set.
+
+### Checks
+
+- `npm run typecheck` (in `web/frontend`): 0 errors. It was proved by adding a call with missing fields, watching it fail, and removing it. It's now one of the checks before every merge.
+- The smoke test is TypeScript too (`test/smoke.tsx`), and the build, the smoke test and the 47 Ruby tests all pass unchanged.
+- The two build-setup files (`vite.config.js`, `dev_embed.js`) stay JavaScript, because they configure tools and aren't part of the app.

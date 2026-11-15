@@ -60,6 +60,7 @@ Claude writes the code. Muhammad studies it afterwards. So:
 - **Stack (decided):** Shopify's official Ruby app template (`Shopify/shopify-app-template-ruby`): Rails backend using the `shopify_app` gem, React frontend with Polaris and App Bridge, SQLite for session storage. Checked on 2026-11-05 through the GitHub API: neither repo is archived, the template was last pushed 2026-10-30 and the gem 2026-11-02.
 - **Fallback if the template will not run** with the current Shopify CLI: keep Rails and the `shopify_app` gem, and drop the template's wiring in favour of a small hand-built React (Vite) frontend with Polaris and App Bridge. If the latest API version breaks the template, use the newest version the template supports. Rails must stay, because the resume needs it.
 - **API:** Shopify GraphQL Admin API only (no REST), using a current stable API version.
+- **Frontend language:** TypeScript in strict mode since 2026-11-15 (Muhammad's request, so the resume can name it). `npm run typecheck` must pass before every merge.
 
 ## 6. How it works
 
