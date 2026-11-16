@@ -1,223 +1,119 @@
-# Shopify App Template - Ruby
+# Restock Forecaster
 
-This is a template for building a [Shopify app](https://shopify.dev/docs/apps/getting-started) using Ruby on Rails and React. It contains the basics for building a Shopify app.
+A Shopify app that tells a store owner which products are about to run out.
 
-Rather than cloning this repo, you can use your preferred package manager and the Shopify CLI with [these steps](#installing-the-template).
+Picture a small coffee shop that sells online through Shopify. The owner reorders stock every week or two, and the expensive mistake is noticing too late that the cold brew is nearly gone. Restock Forecaster opens inside the Shopify admin, reads the store's stock and the last 30 days of sales, and lists every product with how urgent it is: **Out of stock**, **Critical**, **Warning**, **OK**, or **No recent sales**. Click any product's badge to see its sales over the last week, month and 8 weeks, and roughly how many days of stock it has left.
 
-## Benefits
+<!-- Demo GIF goes here (added with the demo recording). -->
 
-Shopify apps are built on a variety of Shopify tools to create a great merchant experience. The [create an app](https://shopify.dev/docs/apps/getting-started/create) tutorial in our developer documentation will guide you through creating a Shopify app using this template.
+## Features
 
-The Ruby app template comes with the following out-of-the-box functionality:
+- **At-risk table.** Every product that tracks inventory, with its category, SKU, stock and a coloured risk badge, sorted so the most urgent rows come first.
+- **Summary boxes.** Counts of Out of stock, Critical and Warning products. Clicking a box shows only those rows.
+- **Sales history window.** Clicking a badge opens a window with "About 3 days of stock left" in that risk's colour, plus a line chart of units sold over the last 7 days, 30 days or 8 weeks (an SVG chart with screen-reader descriptions, no chart library). Hovering a point shows its value. Today's point is drawn hollow, with a dashed line, because the day isn't over.
+- **Live data.** Everything is read from Shopify's GraphQL Admin API when the page loads or you press Refresh. The app stores no sales data.
+- **Demo data in one command.** `bin/rails restock:seed` fills a development store with 13 products and 38 backdated orders that produce every risk level.
 
-- OAuth: Installing the app and granting permissions
-- GraphQL Admin API: Querying or mutating Shopify admin data
-- REST Admin API: Resource classes to interact with the API
-- Shopify-specific tooling:
-  - AppBridge
-  - Polaris
-  - Webhooks
+## How it works
 
-## Tech Stack
+1. The app opens inside the Shopify admin. Shopify's App Bridge gives the page a session token that proves which store is asking.
+2. The React page calls the Rails endpoint `GET /api/forecast`.
+3. Rails asks Shopify's GraphQL Admin API for every active product variant that tracks inventory, and for the orders of the last 30 days, page by page.
+4. A plain Ruby class, `Forecast`, works out each variant's daily sales rate, days of stock left and risk level, and the page draws the table.
+5. Clicking a badge calls `GET /api/sales_history`, which groups one variant's sales by day in the store's time zone.
 
-These third party tools are complemented by Shopify specific tools to ease app development:
+More detail, with a diagram and the exact GraphQL queries, is in [docs/architecture.md](docs/architecture.md).
 
-| Tool | Usage |
-|---------|---------|
-| [Shopify App](https://github.com/Shopify/shopify_app) | Rails engine to help build Shopify app using Rails conventions. Helps to install your application on shops, and provides tools for: <li>OAuth</li><li>Session Storage</li><li>Webhook Processing</li><li>etc.</li> |
-| [ShopifyAPI Gem](https://github.com/Shopify/shopify-api-ruby) | A lightweight gem to provide tools for: <br/><li>Obtaining an active session. (`ShopifyApp` uses this behind the scenes to handle OAuth)</li><li>Clients to make request to Shopify GraphQL and Rest APIs. See how it's used [here](#making-your-first-api-call)</li><li>Error handling</li><li>Application Logger</li><li>Webhook Management</li> |
-| [App Bridge](https://shopify.dev/docs/apps/tools/app-bridge), </br>[App Bridge React](https://shopify.dev/docs/apps/tools/app-bridge/getting-started/using-react)| Frontend library that: <li>Add [authentication to API requests](https://shopify.dev/docs/api/app-bridge-library/apis/resource-fetching) in the frontend</li><li>Renders components outside of the App’s iFrame in Shopify's Admin page</li> |
-| [Polaris React](https://polaris.shopify.com/) | A powerful design system and react component library that helps developers build high quality, consistent experiences for Shopify merchants. |
-| [File-based routing](https://github.com/Shopify/shopify-frontend-template-react/blob/main/Routes.jsx) | Tool makes creating new pages easier. |
+### The forecast rules
 
-This template combines a number of third party open source tools:
+| Step | Rule |
+|---|---|
+| Daily rate | Units sold in the last 30 days (today and the 29 days before it) ÷ 30 |
+| Days left | Stock ÷ daily rate, rounded down |
+| Out of stock | Stock is 0 or less |
+| Critical | 7 days left or fewer |
+| Warning | 8 to 14 days left |
+| OK | More than 14 days left |
+| No recent sales | Nothing sold in 30 days, so there's no estimate |
 
-- [Rails](https://rubyonrails.org/) builds the backend.
-- [Vite](https://vitejs.dev/) builds the [React](https://reactjs.org/) frontend.
-- [React Router](https://reactrouter.com/) is used for routing. We wrap this with file-based routing.
-- [React Query](https://react-query.tanstack.com/) queries the Admin API.
+## Tech stack
 
-> [!NOTE]
-> If you'd prefer not to use React, you can [replace it with a Stimulus frontend](https://github.com/Shopify/shopify-app-template-ruby/wiki/Replacing-React-frontend-with-Stimulus).
+- **Backend:** Ruby 3.3, Ruby on Rails 7.1, the `shopify_app` gem, Shopify GraphQL Admin API (version `2026-10`), SQLite (only for the store's login session)
+- **Frontend:** React 18, TypeScript (strict mode), Shopify Polaris, App Bridge, react-query, Vite
+- **Tests:** Minitest with mocha and webmock, a render-based smoke test, `tsc` type checking, RuboCop with Shopify's rules
 
-## Getting started
+It started from Shopify's official [Ruby app template](https://github.com/Shopify/shopify-app-template-ruby).
 
-### Requirements
+## Running it locally
 
-1. You must [create a Shopify partner account](https://partners.shopify.com/signup) if you don’t have one.
-1. You must create a store for testing if you don't have one, either a [development store](https://help.shopify.com/en/partners/dashboard/development-stores#create-a-development-store) or a [Shopify Plus sandbox store](https://help.shopify.com/en/partners/dashboard/managing-stores/plus-sandbox-store).
-1. You must have [Ruby](https://www.ruby-lang.org/en/) installed.
-1. You must have [Bundler](https://bundler.io/) installed.
-1. You must have [Node.js](https://nodejs.org/) installed.
+You need a Mac (these steps were written on one), a free [Shopify Partner account](https://partners.shopify.com/signup), and a development store created from it.
 
-### Installing the template
+1. **Install the tools.** Install [Homebrew](https://brew.sh), then:
 
-This template runs on [Shopify CLI 3.0](https://shopify.dev/docs/apps/build/cli-for-apps). You can start a new project with this template by running this command:
-
-```shell
-shopify app init --template=https://github.com/Shopify/shopify-app-template-ruby
-```
-
-### Setting up your Rails app
-
-Once the Shopify CLI clones the repo, you will be able to run commands on your app.
-However, the CLI will not manage your Ruby dependencies automatically, so you will need to go through some steps to be able to run your app.
-To make the process easier, the template provides a script to run the necessary steps:
-
-1. Start off by switching to the `web` folder:
-
-   ```shell
-   cd web
+   ```sh
+   brew install mise
+   echo 'eval "$(mise activate zsh)"' >> ~/.zshrc   # then open a new Terminal window
+   mise use --global ruby@3.3.0 node@lts
+   npm install -g @shopify/cli@latest
    ```
 
-2. Install the ruby dependencies:
+2. **Get the code and its libraries.**
 
-   ```shell
+   ```sh
+   git clone https://github.com/PricyK/restock-forecaster.git
+   cd restock-forecaster/web
    bundle install
-   ```
-
-3. Set up the database:
-
-   ```shell
    bin/rails db:create db:migrate
+   (cd frontend && npm install)
+   cd ..
    ```
 
-And your Rails app is ready to run! You can now switch back to your app's root folder to continue:
+3. **Run it.** From the repository's root folder:
 
-```shell
-cd ..
-```
-
-### Local Development
-
-[The Shopify CLI](https://shopify.dev/docs/apps/build/cli-for-apps) connects to an app in your Partners dashboard.
-It provides environment variables, runs commands in parallel, and updates application URLs for easier development.
-
-You can develop locally by running the following command from the root of your app:
-
-```shell
-shopify app dev
-```
-
-Open the URL generated in your console. Once you grant permission to the app, you can start development.
-
-## Deployment
-
-### Application Storage
-
-This template uses [Rails' ActiveRecord framework](https://guides.rubyonrails.org/active_record_basics.html) to store Shopify session data.
-It provides migrations to create the necessary tables in your database, and it stores and loads session data from them.
-
-The database that works best for you depends on the data your app needs and how it is queried.
-You can run your database of choice on a server yourself or host it with a SaaS company.
-Once you decide which database to use, you can configure your app to connect to it, and this template will start using that database for session storage.
-
-### Build
-
-The frontend is a single page React app.
-It requires the `SHOPIFY_API_KEY` environment variable, which you can get by running `shopify app info --web-env`.
-The CLI will set up the necessary environment variables for the build if you run its `build` command from your app's root:
-
-In your app's root folder:
-
-```shell
-shopify app build --client-id=REPLACE_ME
-```
-
-The app build command will build both the frontend and backend when running as above.
-If you're manually building (for instance when deploying the `web` folder to production), you'll need to build both of them:
-
-```shell
-cd web/frontend
-SHOPIFY_API_KEY=REPLACE_ME shopify app build
-cd ..
-rake build:all
-```
-
-### Making your first API call
-
-You can use the [ShopifyAPI](https://github.com/Shopify/shopify-api-ruby) gem to start make authenticated Shopify API calls.
-
-- [Make a GraphQL Admin API call](https://github.com/Shopify/shopify-api-ruby/blob/main/docs/usage/graphql.md)
-- [Make a GraphQL Storefront API call](https://github.com/Shopify/shopify-api-ruby/blob/main/docs/usage/graphql_storefront.md)
-- [Make a Rest Admin API call](https://github.com/Shopify/shopify-api-ruby/blob/main/docs/usage/rest.md)
-
-Examples from this app template:
-
-- Making Admin **GraphQL** API request to create products:
-  - `ProductCreator#create` (web/app/services/product_creator.rb)
-- Making Admin **Rest** API request to count products:
-  - `ProductsController#count` (web/app/controllers/products_controller.rb)
-
-## Hosting
-
-When you're ready to set up your app in production, you can follow [our deployment documentation](https://shopify.dev/docs/apps/deployment/web) to host your app on a cloud provider like [Heroku](https://www.heroku.com/) or [Fly.io](https://fly.io/).
-
-When you reach the step for [setting up environment variables](https://shopify.dev/docs/apps/deployment/web#set-env-vars), you also need to set the following variables:
-
-| Variable                   | Secret? | Required |     Value      | Description                                                 |
-| -------------------------- | :-----: | :------: | :------------: | ----------------------------------------------------------- |
-| `RAILS_MASTER_KEY`         |   Yes   |   Yes    |     string     | Use value from `web/config/master.key` or create a new one. |
-| `RAILS_ENV`                |         |   Yes    | `"production"` |                                                             |
-| `RAILS_SERVE_STATIC_FILES` |         |   Yes    |      `1`       | Tells rails to serve the React app from the public folder.  |
-| `RAILS_LOG_TO_STDOUT`      |         |          |      `1`       | Tells rails to print out logs.                              |
-
-## Known issues
-
-### Hot module replacement and Firefox
-
-When running the app with the CLI in development mode on Firefox, you might see your app constantly reloading when you access it.
-That happened in previous versions of the CLI, because of the way HMR websocket requests work.
-
-We fixed this issue with v3.4.0 of the CLI, so after updating it, you can make the following changes to your app's `web/frontend/vite.config.js` file:
-
-1. Change the definition `hmrConfig` object to be:
-
-   ```js
-   const host = process.env.HOST
-     ? process.env.HOST.replace(/https?:\/\//, "")
-     : "localhost";
-
-   let hmrConfig;
-   if (host === "localhost") {
-     hmrConfig = {
-       protocol: "ws",
-       host: "localhost",
-       port: 64999,
-       clientPort: 64999,
-     };
-   } else {
-     hmrConfig = {
-       protocol: "wss",
-       host: host,
-       port: process.env.FRONTEND_PORT,
-       clientPort: 443,
-     };
-   }
+   ```sh
+   shopify app dev
    ```
 
-1. Change the `server.host` setting in the configs to `"localhost"`:
+   The first time, the CLI asks you to log in, choose your Partner organization, create the app and pick your development store. When it's ready, press `p` to open the app in your store's admin and install it.
 
-   ```js
-   server: {
-     host: "localhost",
-     ...
+4. **Allow it to read orders.** Orders contain customer details, so Shopify only lets an app read them once the developer declares why. In the Partner Dashboard, open the app's **API access requests**, then **Protected customer data access**, and declare that the app reads order data.
+
+5. **Fill the store with demo data.** With the app installed, run this from the `web` folder (it takes about 8 minutes, because development stores accept about 5 new orders a minute):
+
+   ```sh
+   env $(cd .. && shopify app env show | grep =) bin/rails restock:seed SHOP=your-store.myshopify.com
    ```
 
-### I'm seeing "App couldn't be loaded" error due to browser cookies
+   The sales are backdated from the day you run it, so the numbers drift as days pass. Run it again on any day you want a fresh demo.
 
-- Ensure you're using the latest [shopify_app](https://github.com/Shopify/shopify_app/blob/main/README.md) gem that uses Session Tokens instead of cookies.
-  - See ["My app is still using cookies to authenticate"](https://github.com/Shopify/shopify_app/blob/main/docs/Troubleshooting.md#my-app-is-still-using-cookies-to-authenticate)
-- Ensure `shopify.app.toml` is present and contains up to date information for the app's redirect URLS. To reset/update this config, run
+## Tests and checks
 
-```shell
-shopify app dev --reset
+From the `web` folder:
+
+```sh
+bin/rails test              # 47 Ruby tests: forecast math, Shopify reading, endpoints, seed, webhooks
+bundle exec rubocop         # Shopify's Ruby style rules
+cd frontend
+npm run typecheck           # TypeScript in strict mode
+npm run smoke               # draws the page and chart outside the browser and checks the result
 ```
 
-## Developer resources
+How the app was tested on a real development store, step by step with the results, is in [docs/testing.md](docs/testing.md).
 
-- [Introduction to Shopify apps](https://shopify.dev/docs/apps/getting-started)
-- [App authentication](https://shopify.dev/docs/apps/auth)
-- [Shopify CLI](https://shopify.dev/docs/apps/tools/cli)
-- [Shopify API Library documentation](https://github.com/Shopify/shopify-api-ruby/tree/main/docs)
-- [Shopify App Gem](https://github.com/Shopify/shopify_app/blob/main/README.md)
+## Known limitations
+
+- **No hosting.** The app runs from a laptop through `shopify app dev`; it isn't deployed or listed on the Shopify App Store, and it has only been tested with one store at a time.
+- **The forecast is a simple average.** It assumes steady demand, so a product whose sales are climbing will run out sooner than shown. It doesn't know supplier lead times. Days when a product was out of stock count as zero sales, which pulls its average down.
+- **Refunds still count as sales**, so a returned item still raises the rate.
+- **The chart covers 8 weeks, not a year.** Apps can read only the last 60 days of orders unless Shopify approves the `read_all_orders` permission.
+- **Every click reads all recent orders.** The sales window fetches all orders from the last 8 weeks and keeps one product's lines. That's fine for a small store; a large one would need a narrower query or a cache.
+- **Very large orders are cut off:** line items after the 250th in one order are ignored.
+- **The seed's retry is simple:** when rate-limited it waits a fixed 60 seconds, up to 3 times.
+
+## How it was built
+
+I built this with [Claude Code](https://claude.com/claude-code) as an AI pair programmer: I made the product and design decisions, checked every feature in the Shopify admin, and tested it on a real development store. The design spec and the step-by-step plan are in [docs/superpowers](docs/superpowers), and [docs/study-guide.md](docs/study-guide.md) explains every file and decision in plain English.
+
+## License
+
+[MIT](LICENSE).
